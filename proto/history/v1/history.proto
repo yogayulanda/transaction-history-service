@@ -1,0 +1,241 @@
+syntax = "proto3";
+
+package history.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/yogayulanda/transaction-history-service/history/v1;historyv1";
+
+service HistoryService {
+
+  // ============================
+  // USER-FACING APIs
+  // ============================
+
+  rpc GetUserHistory(GetUserHistoryRequest)
+      returns (GetUserHistoryResponse) {
+    option (google.api.http) = {
+      get: "/v1/history"
+    };
+  }
+
+  rpc GetTransactionHistoryDetail(GetTransactionHistoryDetailRequest)
+      returns (GetTransactionHistoryDetailResponse) {
+    option (google.api.http) = {
+      get: "/v1/history/{id}"
+    };
+  }
+
+  // ============================
+  // INTERNAL APIs (TEMPORARY)
+  // ============================
+
+  rpc CreateTransactionHistory(CreateTransactionHistoryRequest)
+      returns (CreateTransactionHistoryResponse) {
+    option (google.api.http) = {
+      post: "/v1/transaction-histories"
+      body: "*"
+    };
+  }
+}
+
+enum TransactionStatusCode {
+  TRANSACTION_STATUS_CODE_UNSPECIFIED = 0;
+  TRANSACTION_STATUS_CODE_CREATED = 1;
+  TRANSACTION_STATUS_CODE_PENDING = 2;
+  TRANSACTION_STATUS_CODE_PROCESSING = 3;
+  TRANSACTION_STATUS_CODE_SUCCESS = 4;
+  TRANSACTION_STATUS_CODE_FAILED = 5;
+  TRANSACTION_STATUS_CODE_REVERSED = 6;
+  TRANSACTION_STATUS_CODE_EXPIRED = 7;
+}
+
+//
+// ============================
+// USER HISTORY
+// ============================
+//
+
+message GetUserHistoryRequest {
+  // End user identifier.
+  string user_id = 1;
+  // Inclusive start date in ISO8601 format. Example: "2026-02-01T00:00:00Z".
+  string start_date = 2;
+  // Inclusive end date in ISO8601 format. Example: "2026-02-29T23:59:59Z".
+  string end_date = 3;
+
+  // Top-level product grouping for reporting/filtering.
+  // Recommended values: "ppob", "transfer", "cash".
+  string product_group = 4;
+  // Specific product/use-case under product_group.
+  // Examples: "pulsa", "paket_data", "pln_token", "bpjs_kesehatan",
+  // "transfer_internal", "transfer_interbank".
+  string product_type = 5;
+  // Backend route used to process transaction.
+  // Examples: "internal", "bifast", "rtol", "switching", "partner_h2h".
+  string transaction_route = 6;
+  // Current lifecycle status code.
+  TransactionStatusCode status_code = 7;
+
+  // Pagination cursor from previous response.
+  string cursor = 8;
+  // Requested page size. Server should clamp to max 100.
+  int32 page_size = 9;
+}
+
+message GetUserHistoryResponse {
+  repeated TransactionHistory items = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+message TransactionHistory {
+  // Internal immutable transaction ID (UUID/ULID).
+  string id = 1;
+  // End user identifier.
+  string user_id = 2;
+  // Idempotency/business reference ID from caller system.
+  string reference_id = 3;
+  // Optional provider/core-banking reference ID.
+  string external_ref_id = 4;
+
+  // Top-level product grouping.
+  string product_group = 5;
+  // Product/use-case.
+  string product_type = 6;
+  // Processing route in backend.
+  string transaction_route = 7;
+  // Origin channel of request.
+  // Examples: "mobile_app", "web", "indomaret", "alfamart".
+  string channel = 8;
+  // Financial direction from account perspective.
+  // Recommended values: "debit", "credit".
+  string direction = 9;
+
+  // Monetary values stored in minor unit (e.g. cents).
+  int64 amount = 10;
+  int64 fee = 11;
+  int64 total_amount = 12;
+  // ISO currency code. Example: "IDR".
+  string currency = 13;
+
+  // Lifecycle status code.
+  TransactionStatusCode status_code = 14;
+  // Optional business/integration error code.
+  string error_code = 15;
+  // Optional business/integration error description.
+  string error_message = 16;
+  // Upstream source service name.
+  string source_service = 17;
+  // Business transaction time.
+  google.protobuf.Timestamp transaction_time = 18;
+}
+
+//
+// ============================
+// TRANSACTION DETAIL
+// ============================
+//
+
+message GetTransactionHistoryDetailRequest {
+  string id = 1;
+}
+
+message GetTransactionHistoryDetailResponse {
+  TransactionHistoryDetail data = 1;
+}
+
+message TransactionHistoryDetail {
+  // Internal immutable transaction ID (UUID/ULID).
+  string id = 1;
+  // End user identifier.
+  string user_id = 2;
+  // Idempotency/business reference ID from caller system.
+  string reference_id = 3;
+  // Optional provider/core-banking reference ID.
+  string external_ref_id = 4;
+  // Top-level product grouping.
+  string product_group = 5;
+  // Product/use-case.
+  string product_type = 6;
+  // Processing route in backend.
+  string transaction_route = 7;
+  // Origin channel of request.
+  string channel = 8;
+  // Financial direction from account perspective.
+  string direction = 9;
+  // Monetary values stored in minor unit.
+  int64 amount = 10;
+  int64 fee = 11;
+  int64 total_amount = 12;
+  // ISO currency code.
+  string currency = 13;
+  // Lifecycle status code.
+  TransactionStatusCode status_code = 14;
+  // Optional business/integration error code.
+  string error_code = 15;
+  // Optional business/integration error description.
+  string error_message = 16;
+  // Upstream source service name.
+  string source_service = 17;
+  // Business transaction time.
+  google.protobuf.Timestamp transaction_time = 18;
+  // Product-specific payload.
+  // Examples:
+  // - PLN token: customer_number, token_number, tariff_power
+  // - Transfer: beneficiary_bank, beneficiary_account
+  // - Cash-in/out: store_code, terminal_id
+  string metadata_json = 19;
+  // Record creation timestamp.
+  google.protobuf.Timestamp created_at = 20;
+  // Last update timestamp.
+  google.protobuf.Timestamp updated_at = 21;
+}
+
+//
+// ============================
+// INTERNAL INGESTION
+// ============================
+//
+
+message CreateTransactionHistoryRequest {
+  // End user identifier.
+  string user_id = 1;
+  // Idempotency/business reference ID from caller system.
+  string reference_id = 2;
+  // Optional provider/core-banking reference ID.
+  string external_ref_id = 3;
+  // Top-level product grouping.
+  string product_group = 4;
+  // Product/use-case.
+  string product_type = 5;
+  // Processing route in backend.
+  string transaction_route = 6;
+  // Origin channel of request.
+  string channel = 7;
+  // Financial direction from account perspective.
+  string direction = 8;
+  // Monetary values stored in minor unit.
+  int64 amount = 9;
+  int64 fee = 10;
+  int64 total_amount = 11;
+  // ISO currency code.
+  string currency = 12;
+  // Lifecycle status code.
+  TransactionStatusCode status_code = 13;
+  // Optional business/integration error code.
+  string error_code = 14;
+  // Optional business/integration error description.
+  string error_message = 15;
+  // Upstream source service name.
+  string source_service = 16;
+  // Business transaction time.
+  google.protobuf.Timestamp transaction_time = 17;
+  // Product-specific payload.
+  string metadata_json = 18;
+}
+
+message CreateTransactionHistoryResponse {
+  string id = 1;
+}
