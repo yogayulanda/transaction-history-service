@@ -15,9 +15,6 @@ Defines AI roles and instructions.
 .ai/tasks
 Contains task definitions for AI execution.
 
-.ai/scripts
-Utility scripts that run AI workflows.
-
 Workflow
 
 1. Create a task
@@ -26,11 +23,11 @@ Workflow
 
 2. Plan the task
 
-ai-plan feature_example
+forge plan feature_example
 
 3. Execute the task
 
-ai-run feature_example
+forge run feature_example
 
 4. Build project
 
@@ -38,11 +35,15 @@ go build ./...
 
 5. Fix errors if needed
 
-ai-fix "error message"
+forge fix feature_example --error "error message"
 
 6. Review code
 
-ai-review path/to/file.go
+forge review path/to/file.go
+
+7. Inspect the final prompt if needed
+
+forge prompt feature_example
 
 Task Naming Convention
 
@@ -51,7 +52,7 @@ fix_*
 refactor_*
 test_*
 
-This determines which AI prompt will be used.
+This determines which AI prompt will be used when explicit task metadata is not present.
 
 Context Layers
 
@@ -65,6 +66,22 @@ Engineering Rules
 Ownership Rules
 
 These layers allow AI to understand the repository structure quickly.
+
+Repository Detection
+
+The standalone `forge` CLI starts from the current working directory and walks upward until it finds `.ai/`.
+
+If `.ai/` is not found, it returns:
+
+AI context directory (.ai) not found
+
+Prompt Debugging
+
+Use:
+
+forge --print-prompt run feature_example
+forge --save-prompt /tmp/feature_example.prompt run feature_example
+forge prompt feature_example
 
 Safety Guards
 

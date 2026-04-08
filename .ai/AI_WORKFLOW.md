@@ -23,8 +23,8 @@ The AI workflow follows a layered architecture:
 Engineer
    │
    ▼
-AI Scripts
-(ai-plan / ai-run / ai-fix / ai-review)
+Forge CLI
+(forge plan / forge run / forge fix / forge review / forge prompt)
    │
    ▼
 Prompt Layer
@@ -78,11 +78,6 @@ Each layer contributes specific information required for the AI to operate safel
   tasks/
     template.md
 
-  scripts/
-    ai-run
-    ai-plan
-    ai-fix
-    ai-review
 ```
 
 ---
@@ -193,22 +188,21 @@ These prompts control how AI processes tasks.
 
 # Execution Layer
 
-Scripts run AI workflows.
+`forge` is a standalone CLI repository. Service repositories keep `.ai/` only and are discovered at runtime by walking upward from the current working directory until `.ai/` is found.
 
-Location:
+If no `.ai/` directory is found, `forge` returns:
 
-```
-.ai/scripts/
-```
+`AI context directory (.ai) not found`
 
-Scripts available:
+Commands:
 
-| Script    | Purpose          |
-| --------- | ---------------- |
-| ai-plan   | break down tasks |
-| ai-run    | implement tasks  |
-| ai-fix    | fix errors       |
-| ai-review | review code      |
+| Command                               | Purpose                    |
+| ------------------------------------- | -------------------------- |
+| `forge plan <task>`                   | break down tasks           |
+| `forge run <task>`                    | implement tasks            |
+| `forge fix <task> --error "<msg>"`    | fix errors inside a task   |
+| `forge review [<path>] [--staged]`    | review diff or path target |
+| `forge prompt <task>`                 | print the final prompt     |
 
 ---
 
@@ -219,15 +213,15 @@ Typical development workflow:
 ```
 create task
 ↓
-ai-plan feature_x
+forge plan feature_x
 ↓
-ai-run feature_x
+forge run feature_x
 ↓
 go build ./...
 ↓
-ai-fix "error message"
+forge fix feature_x --error "error message"
 ↓
-ai-review file.go
+forge review file.go
 ```
 
 AI acts as an assistant engineer during development.
@@ -245,6 +239,29 @@ The system provides AI with structural knowledge through:
 These allow AI to locate relevant files quickly.
 
 Without this layer, AI would need to scan the entire repository.
+
+---
+
+# Prompt Assembly Contract
+
+Forge builds task prompts in this deterministic order:
+
+1. task context
+2. feature-map.md
+3. symbol-map.md
+4. repomap.md
+5. file-index.md
+6. architecture.md
+7. framework-go-core.md
+8. engineering-rules.md
+9. ownership.md
+10. prompt template
+
+For prompt debugging:
+
+* `forge --print-prompt run feature_x`
+* `forge --save-prompt /tmp/feature_x.prompt run feature_x`
+* `forge prompt feature_x`
 
 ---
 
