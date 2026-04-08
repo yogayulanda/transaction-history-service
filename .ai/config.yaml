@@ -1,0 +1,6 @@
+version: v1
+
+context:
+  - .ai/context/core.md
+  - .ai/context/rules.md
+  - .ai/context/patterns.md

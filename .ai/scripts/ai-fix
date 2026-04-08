@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+ERROR=$1
+
+if [ -z "$ERROR" ]; then
+  echo "Usage: ai-fix \"error message\""
+  exit 1
+fi
+
+codex "$(
+cat .ai/prompts/fix.md
+
+echo
+echo "Error:"
+echo "$ERROR"
+)"

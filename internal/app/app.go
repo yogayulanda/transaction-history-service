@@ -52,8 +52,8 @@ func New(core *coreapp.App) (*App, error) {
 
 	// 3️⃣ Ambil abstraction dari core
 	var cacheClient cache.Cache
-	if core.Cache() != nil {
-		cacheClient = core.Cache()
+	if core.RedisCache() != nil {
+		cacheClient = core.RedisCache()
 	}
 
 	var publisher messaging.Publisher

@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// Init core platform (logger, SQL, Redis, Kafka, lifecycle)
-	core, err := coreapp.New(cfg)
+	core, err := coreapp.New(ctx,cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -103,6 +103,7 @@ func main() {
 		cfg.GRPC.Port,
 		cfg.HTTP.Port,
 		10*time.Second,
+		true,
 	)
 
 	if err := coreserver.Run(ctx, core, grpcServer, gatewayServer); err != nil {
