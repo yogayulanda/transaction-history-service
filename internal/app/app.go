@@ -23,34 +23,25 @@ type App struct {
 }
 
 func New(core *coreapp.App) (*App, error) {
-
-	// 1️⃣ Ambil SQL Server dari core
-	sqlDB := core.SQLByName("transaction")
+	// Primary store for transaction history.
+	sqlDB := core.SQLByName("transaction_history")
 	if sqlDB == nil {
-		return nil, fmt.Errorf("transaction database not initialized")
+		return nil, fmt.Errorf("transaction_history database not initialized")
 	}
 
-	// 1b️⃣ Pastikan MySQL juga tersedia (akan dipakai di phase berikutnya)
-	mysqlDB := core.SQLByName("history")
-	if mysqlDB == nil {
-		return nil, fmt.Errorf("history database not initialized")
-	}
-	_ = mysqlDB
-
-	// 2️⃣ Wrap sql.DB → GORM
 	gormDB, err := gorm.Open(
 		sqlserver.New(sqlserver.Config{
 			Conn: sqlDB.DB,
 		}),
 		&gorm.Config{
-			PrepareStmt: true,
+			PrepareStmt:    true,
+			TranslateError: true,
 		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("init gorm failed: %w", err)
 	}
 
-	// 3️⃣ Ambil abstraction dari core
 	var cacheClient cache.Cache
 	if core.RedisCache() != nil {
 		cacheClient = core.RedisCache()
@@ -60,7 +51,6 @@ func New(core *coreapp.App) (*App, error) {
 
 	var log logger.Logger = core.Logger()
 
-	// 4️⃣ Init service layer
 	txService := service.NewTransactionService(
 		repository.NewTransactionRepository(gormDB, sqlDB.DB),
 		cacheClient,
@@ -68,7 +58,6 @@ func New(core *coreapp.App) (*App, error) {
 		log,
 	)
 
-	// 5️⃣ Init gRPC handler
 	historyHandler := handlergrpc.NewHistoryHandler(txService)
 
 	return &App{

@@ -28,7 +28,7 @@ service HistoryService {
   }
 
   // ============================
-  // INTERNAL APIs (TEMPORARY)
+  // INTERNAL FALLBACK / TESTING API
   // ============================
 
   rpc CreateTransactionHistory(CreateTransactionHistoryRequest)
@@ -79,6 +79,7 @@ message GetUserHistoryRequest {
   TransactionStatusCode status_code = 7;
 
   // Pagination cursor from previous response.
+  // Current implementation is offset-based placeholder and may evolve later.
   string cursor = 8;
   // Requested page size. Server should clamp to max 100.
   int32 page_size = 9;
@@ -203,6 +204,7 @@ message CreateTransactionHistoryRequest {
   // End user identifier.
   string user_id = 1;
   // Idempotency/business reference ID from caller system.
+  // This must be globally unique across all producer services.
   string reference_id = 2;
   // Optional provider/core-banking reference ID.
   string external_ref_id = 3;
@@ -213,6 +215,7 @@ message CreateTransactionHistoryRequest {
   // Processing route in backend.
   string transaction_route = 6;
   // Origin channel of request.
+  // This is a core business dimension because transactions may come from multiple apps.
   string channel = 7;
   // Financial direction from account perspective.
   string direction = 8;

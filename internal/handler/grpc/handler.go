@@ -33,14 +33,8 @@ func (h *Handler) CreateTransactionHistory(
 	ctx context.Context,
 	req *historyv1.CreateTransactionHistoryRequest,
 ) (*historyv1.CreateTransactionHistoryResponse, error) {
-	if strings.TrimSpace(req.UserId) == "" {
-		return nil, status.Error(codes.InvalidArgument, "user_id is required")
-	}
-	if strings.TrimSpace(req.ReferenceId) == "" {
-		return nil, status.Error(codes.InvalidArgument, "reference_id is required")
-	}
-	if strings.TrimSpace(req.ProductGroup) == "" || strings.TrimSpace(req.ProductType) == "" {
-		return nil, status.Error(codes.InvalidArgument, "product_group and product_type are required")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
 
 	statusCode := fromStatusCode(req.StatusCode)
@@ -74,6 +68,12 @@ func (h *Handler) CreateTransactionHistory(
 		MetadataJSON:     strings.TrimSpace(req.MetadataJson),
 	})
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidTransactionHistoryInput) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, service.ErrDuplicateReferenceID) {
+			return nil, status.Error(codes.AlreadyExists, err.Error())
+		}
 		return nil, status.Error(codes.Internal, "failed to create transaction history")
 	}
 
@@ -86,6 +86,10 @@ func (h *Handler) GetUserHistory(
 	ctx context.Context,
 	req *historyv1.GetUserHistoryRequest,
 ) (*historyv1.GetUserHistoryResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+
 	userID := strings.TrimSpace(req.UserId)
 	if userID == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -98,6 +102,9 @@ func (h *Handler) GetUserHistory(
 	endDate, err := parseDate(req.EndDate)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "end_date must be RFC3339")
+	}
+	if startDate != nil && endDate != nil && startDate.After(*endDate) {
+		return nil, status.Error(codes.InvalidArgument, "start_date must be before or equal to end_date")
 	}
 
 	pageSize := int(req.PageSize)
@@ -158,6 +165,13 @@ func (h *Handler) GetTransactionHistoryDetail(
 	ctx context.Context,
 	req *historyv1.GetTransactionHistoryDetailRequest,
 ) (*historyv1.GetTransactionHistoryDetailResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	if strings.TrimSpace(req.Id) == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
 	tx, err := h.service.GetTransactionHistoryDetail(ctx, req.Id)
 	if err != nil {
 		if errors.Is(err, domain.ErrTransactionNotFound) {

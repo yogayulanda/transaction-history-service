@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,49 +18,45 @@ import (
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
 	serviceapp "github.com/yogayulanda/transaction-history-service/internal/app"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/yogayulanda/go-core/logger"
 	"google.golang.org/grpc"
 )
 
 func main() {
-	// Context untuk graceful shutdown (Ctrl+C / SIGTERM)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Load config (akan baca .env jika ada, tidak override env production)
 	cfg, err := coreconfig.Load(
 		coreconfig.WithDotEnv(".env"),
 	)
 	if err != nil {
-		panic(err)
+		exitWithError("load config", err)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		panic(err)
+		exitWithError("validate config", err)
 	}
 
 	if err := coremigration.AutoRunUp(cfg); err != nil {
-		panic(err)
+		exitWithError("run migration", err)
 	}
 
-	// Init core platform (logger, SQL, Redis, Kafka, lifecycle)
-	core, err := coreapp.New(ctx,cfg)
+	core, err := coreapp.New(ctx, cfg)
 	if err != nil {
-		panic(err)
+		exitWithError("initialize core app", err)
 	}
 
-	// Init service container (repository, usecase, handler)
 	svcApp, err := serviceapp.New(core)
 	if err != nil {
-		panic(err)
+		core.Logger().Error(ctx, "service bootstrap failed", logger.Field{Key: "error", Value: err.Error()})
+		os.Exit(1)
 	}
 
-	// Setup gRPC server
 	grpcServer, err := coregrpc.New(core)
 	if err != nil {
-		panic(err)
+		core.Logger().Error(ctx, "grpc server bootstrap failed", logger.Field{Key: "error", Value: err.Error()})
+		os.Exit(1)
 	}
 
 	grpcServer.Register(func(s *grpc.Server) {
@@ -69,7 +66,6 @@ func main() {
 		)
 	})
 
-	// Setup HTTP Gateway
 	gatewayServer, err := coregateway.New(
 		core,
 		func(ctx context.Context, mux *runtime.ServeMux) error {
@@ -81,7 +77,8 @@ func main() {
 		},
 	)
 	if err != nil {
-		panic(err)
+		core.Logger().Error(ctx, "http gateway bootstrap failed", logger.Field{Key: "error", Value: err.Error()})
+		os.Exit(1)
 	}
 
 	httpEndpoints, grpcMethods := coreserver.DescribeFromProto(
@@ -96,7 +93,6 @@ func main() {
 		logger.Field{Key: "grpc_port", Value: cfg.GRPC.Port},
 	)
 
-	// Start servers
 	go coreserver.LogStartupReadiness(
 		ctx,
 		core.Logger(),
@@ -107,6 +103,12 @@ func main() {
 	)
 
 	if err := coreserver.Run(ctx, core, grpcServer, gatewayServer); err != nil {
-		panic(err)
+		core.Logger().Error(ctx, "server stopped with error", logger.Field{Key: "error", Value: err.Error()})
+		os.Exit(1)
 	}
+}
+
+func exitWithError(step string, err error) {
+	fmt.Fprintf(os.Stderr, "transaction-history-service: %s: %v\n", step, err)
+	os.Exit(1)
 }

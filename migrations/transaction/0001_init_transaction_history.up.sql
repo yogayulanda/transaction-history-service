@@ -33,8 +33,8 @@ CREATE TABLE dbo.transaction_histories (
         CHECK (amount >= 0 AND fee >= 0 AND total_amount >= 0)
 );
 
-CREATE UNIQUE INDEX UX_transaction_histories_source_reference
-    ON dbo.transaction_histories(source_service, reference_id);
+CREATE UNIQUE INDEX UX_transaction_histories_reference_id
+    ON dbo.transaction_histories(reference_id);
 
 CREATE INDEX IX_transaction_histories_user_time
     ON dbo.transaction_histories(user_id, transaction_time DESC);

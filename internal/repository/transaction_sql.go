@@ -3,12 +3,12 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/yogayulanda/go-core/dbtx"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
-	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +36,7 @@ type transactionHistoryModel struct {
 }
 
 func (transactionHistoryModel) TableName() string {
-	return "transaction_histories"
+	return "dbo.transaction_histories"
 }
 
 type transactionHistoryDetailModel struct {
@@ -47,7 +47,7 @@ type transactionHistoryDetailModel struct {
 }
 
 func (transactionHistoryDetailModel) TableName() string {
-	return "transaction_history_details"
+	return "dbo.transaction_history_details"
 }
 
 type transactionHistoryStatusEventModel struct {
@@ -62,7 +62,7 @@ type transactionHistoryStatusEventModel struct {
 }
 
 func (transactionHistoryStatusEventModel) TableName() string {
-	return "transaction_history_status_events"
+	return "dbo.transaction_history_status_events"
 }
 
 type transactionRepository struct {
@@ -122,6 +122,9 @@ func (r *transactionRepository) Create(
 		}
 
 		if err := txDB.Create(&h).Error; err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				return gorm.ErrDuplicatedKey
+			}
 			return err
 		}
 
@@ -160,19 +163,12 @@ func (r *transactionRepository) dbFromContext(ctx context.Context) (*gorm.DB, er
 		return r.db.WithContext(ctx), nil
 	}
 
-	gdb, err := gorm.Open(
-		sqlserver.New(sqlserver.Config{
-			Conn: tx,
-		}),
-		&gorm.Config{
-			PrepareStmt: true,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return gdb.WithContext(ctx), nil
+	txDB := r.db.Session(&gorm.Session{
+		NewDB:   true,
+		Context: ctx,
+	})
+	txDB.Statement.ConnPool = tx
+	return txDB, nil
 }
 
 func (r *transactionRepository) FindDetailByID(
