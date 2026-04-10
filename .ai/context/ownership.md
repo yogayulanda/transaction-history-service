@@ -12,7 +12,7 @@ transaction-history-service owns:
 internal/handler
 internal/service
 internal/repository
-internal/model
+internal/domain
 
 transaction-history-service must NOT modify:
 
@@ -48,7 +48,10 @@ internal/payment/*
 transaction-history-service
 
 ownership:
-internal/transaction/*
+internal/handler/*
+internal/service/*
+internal/repository/*
+internal/domain/*
 
 Rules
 

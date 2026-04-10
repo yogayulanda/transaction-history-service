@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	"gorm.io/gorm"
 )
@@ -44,8 +45,12 @@ func TestCreateTransactionHistory_ValidatesBusinessFields(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
-	if !errors.Is(err, ErrInvalidTransactionHistoryInput) {
-		t.Fatalf("expected invalid input error, got %v", err)
+	var appErr *coreerrors.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+	if appErr.Code != coreerrors.CodeInvalidRequest {
+		t.Fatalf("expected INVALID_REQUEST code, got %s", appErr.Code)
 	}
 }
 
@@ -101,7 +106,11 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 		Currency:      "IDR",
 		MetadataJSON:  `{}`,
 	})
-	if !errors.Is(err, ErrDuplicateReferenceID) {
-		t.Fatalf("expected duplicate reference error, got %v", err)
+	var appErr *coreerrors.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+	if appErr.Code != coreerrors.CodeInvalidRequest {
+		t.Fatalf("expected INVALID_REQUEST code, got %s", appErr.Code)
 	}
 }

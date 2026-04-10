@@ -1,0 +1,305 @@
+openapi: 3.0.3
+info:
+  title: Transaction History Service
+  description: API endpoints for the Go Transaction History Service
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+paths:
+  /v1/history:
+    get:
+      summary: Get User History
+      description: Returns a paginated list of transaction history for a user.
+      operationId: GetUserHistory
+      parameters:
+        - name: userId
+          in: query
+          description: End user identifier.
+          required: false
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          description: Inclusive start date in ISO8601 format. Example - "2026-02-01T00:00:00Z".
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: Inclusive end date in ISO8601 format. Example - "2026-02-29T23:59:59Z".
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: productGroup
+          in: query
+          description: Top-level product grouping for reporting/filtering.
+          required: false
+          schema:
+            type: string
+        - name: productType
+          in: query
+          description: Specific product/use-case under product_group.
+          required: false
+          schema:
+            type: string
+        - name: transactionRoute
+          in: query
+          description: Backend route used to process transaction.
+          required: false
+          schema:
+            type: string
+        - name: statusCode
+          in: query
+          description: Current lifecycle status code.
+          required: false
+          schema:
+            $ref: '#/components/schemas/TransactionStatusCode'
+        - name: cursor
+          in: query
+          description: Pagination cursor from previous response.
+          required: false
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: Requested page size. Server should clamp to max 100.
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: A successful response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetUserHistoryResponse'
+  /v1/history/{id}:
+    get:
+      summary: Get Transaction History Detail
+      description: Returns the details of a specific transaction history record.
+      operationId: GetTransactionHistoryDetail
+      parameters:
+        - name: id
+          in: path
+          description: Internal immutable transaction ID (UUID/ULID).
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A successful response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetTransactionHistoryDetailResponse'
+  /v1/transaction-histories:
+    post:
+      summary: Create Transaction History
+      description: Creates a new transaction history record for ingestion.
+      operationId: CreateTransactionHistory
+      requestBody:
+        description: Request payload to create a transaction history.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionHistoryRequest'
+      responses:
+        '200':
+          description: A successful response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateTransactionHistoryResponse'
+components:
+  schemas:
+    TransactionStatusCode:
+      type: string
+      enum:
+        - TRANSACTION_STATUS_CODE_UNSPECIFIED
+        - TRANSACTION_STATUS_CODE_CREATED
+        - TRANSACTION_STATUS_CODE_PENDING
+        - TRANSACTION_STATUS_CODE_PROCESSING
+        - TRANSACTION_STATUS_CODE_SUCCESS
+        - TRANSACTION_STATUS_CODE_FAILED
+        - TRANSACTION_STATUS_CODE_REVERSED
+        - TRANSACTION_STATUS_CODE_EXPIRED
+      default: TRANSACTION_STATUS_CODE_UNSPECIFIED
+    TransactionHistory:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Internal immutable transaction ID (UUID/ULID).
+        userId:
+          type: string
+          description: End user identifier.
+        referenceId:
+          type: string
+          description: Idempotency/business reference ID from caller system.
+        externalRefId:
+          type: string
+          description: Optional provider/core-banking reference ID.
+        productGroup:
+          type: string
+          description: Top-level product grouping.
+        productType:
+          type: string
+          description: Product/use-case.
+        transactionRoute:
+          type: string
+          description: Processing route in backend.
+        channel:
+          type: string
+          description: Origin channel of request.
+        direction:
+          type: string
+          description: Financial direction from account perspective.
+        amount:
+          type: string
+          format: int64
+          description: Monetary values stored in minor unit (e.g. cents).
+        fee:
+          type: string
+          format: int64
+        totalAmount:
+          type: string
+          format: int64
+        currency:
+          type: string
+          description: ISO currency code. Example - "IDR".
+        statusCode:
+          $ref: '#/components/schemas/TransactionStatusCode'
+        errorCode:
+          type: string
+          description: Optional business/integration error code.
+        errorMessage:
+          type: string
+          description: Optional business/integration error description.
+        sourceService:
+          type: string
+          description: Upstream source service name.
+        transactionTime:
+          type: string
+          format: date-time
+          description: Business transaction time.
+    TransactionHistoryDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        referenceId:
+          type: string
+        externalRefId:
+          type: string
+        productGroup:
+          type: string
+        productType:
+          type: string
+        transactionRoute:
+          type: string
+        channel:
+          type: string
+        direction:
+          type: string
+        amount:
+          type: string
+          format: int64
+        fee:
+          type: string
+          format: int64
+        totalAmount:
+          type: string
+          format: int64
+        currency:
+          type: string
+        statusCode:
+          $ref: '#/components/schemas/TransactionStatusCode'
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        sourceService:
+          type: string
+        transactionTime:
+          type: string
+          format: date-time
+        metadataJson:
+          type: string
+          description: Product-specific payload.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    GetUserHistoryResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionHistory'
+        nextCursor:
+          type: string
+        hasMore:
+          type: boolean
+    GetTransactionHistoryDetailResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TransactionHistoryDetail'
+    CreateTransactionHistoryRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        referenceId:
+          type: string
+        externalRefId:
+          type: string
+        productGroup:
+          type: string
+        productType:
+          type: string
+        transactionRoute:
+          type: string
+        channel:
+          type: string
+        direction:
+          type: string
+        amount:
+          type: string
+          format: int64
+        fee:
+          type: string
+          format: int64
+        totalAmount:
+          type: string
+          format: int64
+        currency:
+          type: string
+        statusCode:
+          $ref: '#/components/schemas/TransactionStatusCode'
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        sourceService:
+          type: string
+        transactionTime:
+          type: string
+          format: date-time
+        metadataJson:
+          type: string
+    CreateTransactionHistoryResponse:
+      type: object
+      properties:
+        id:
+          type: string

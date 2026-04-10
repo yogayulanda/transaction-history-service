@@ -7,40 +7,49 @@ Main service layers:
 
 Handler layer
 
-internal/handler/
+internal/handler/grpc/handler.go
+internal/handler/grpc/handler_test.go
 
 Responsible for:
 
-- HTTP handlers
 - gRPC handlers
 - request validation
+- error mapping via errors.ToGRPC
 
 Service layer
 
-internal/service/
+internal/service/transaction_service.go
+internal/service/transaction_service_test.go
+internal/service/errors.go
 
 Responsible for:
 
 - business logic
 - orchestration
+- error contract construction
 
 Repository layer
 
-internal/repository/
+internal/repository/transaction_sql.go
+internal/repository/transaction_sql_test.go
 
 Responsible for:
 
 - database queries
 - persistence
+- dbtx.WithTx transaction orchestration
 
 Models
 
-internal/model/
+internal/domain/transaction.go
+internal/domain/repository.go
+internal/domain/errors.go
 
 Responsible for:
 
 - domain entities
-- database models
+- repository interface contract
+- domain error sentinels
 
 API definitions
 
@@ -53,12 +62,21 @@ Responsible for:
 
 Server bootstrap
 
-cmd/
+cmd/server/main.go
 
 Responsible for:
 
 - service startup
 - go-core integration
+
+Application wiring
+
+internal/app/app.go
+
+Responsible for:
+
+- dependency injection
+- component wiring
 
 Database migrations
 

@@ -33,7 +33,7 @@ func newMockRepository(t *testing.T) (*transactionRepository, sqlmock.Sqlmock, f
 		_ = sqlDB.Close()
 	}
 
-	return &transactionRepository{db: gdb, sqlDB: sqlDB}, mock, cleanup
+	return &transactionRepository{db: gdb, sqlDB: sqlDB, log: nil}, mock, cleanup
 }
 
 func TestCreate_MapsDuplicateReferenceIDToDuplicatedKey(t *testing.T) {

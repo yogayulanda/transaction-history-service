@@ -57,6 +57,7 @@ This determines which AI prompt will be used when explicit task metadata is not 
 Context Layers
 
 Project Context
+Core System Context
 Architecture Context
 Framework Context
 Repository Map

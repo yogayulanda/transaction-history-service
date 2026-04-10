@@ -4,11 +4,13 @@ import (
 	"context"
 	"testing"
 
+	coreerrors "github.com/yogayulanda/go-core/errors"
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type stubRepository struct {
@@ -59,13 +61,19 @@ func TestCreateTransactionHistory_ReturnsInvalidArgumentForBusinessValidation(t 
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected invalid argument, got %v", status.Code(err))
 	}
+
+	// Verify ErrorInfo contains go-core reason code.
+	appCode := coreerrors.CodeFromGRPC(err)
+	if appCode != coreerrors.CodeInvalidRequest {
+		t.Fatalf("expected INVALID_REQUEST reason, got %s", appCode)
+	}
 }
 
 func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 	handler := &Handler{
 		service: service.NewTransactionService(stubRepository{
 			createFn: func(context.Context, domain.CreateTransactionHistoryInput) (string, error) {
-				return "", service.ErrDuplicateReferenceID
+				return "", gorm.ErrDuplicatedKey
 			},
 		}, nil, nil, nil),
 	}
@@ -84,8 +92,8 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if status.Code(err) != codes.AlreadyExists {
-		t.Fatalf("expected already exists, got %v", status.Code(err))
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected invalid argument, got %v", status.Code(err))
 	}
 }
 
@@ -118,5 +126,25 @@ func TestGetTransactionHistoryDetail_RequiresID(t *testing.T) {
 	}
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected invalid argument, got %v", status.Code(err))
+	}
+}
+
+func TestGetTransactionHistoryDetail_MapsNotFound(t *testing.T) {
+	handler := &Handler{
+		service: service.NewTransactionService(stubRepository{
+			detailFn: func(_ context.Context, _ string) (*domain.TransactionHistoryDetail, error) {
+				return nil, domain.ErrTransactionNotFound
+			},
+		}, nil, nil, nil),
+	}
+
+	_, err := handler.GetTransactionHistoryDetail(context.Background(), &historyv1.GetTransactionHistoryDetailRequest{
+		Id: "missing-id",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected not found, got %v", status.Code(err))
 	}
 }

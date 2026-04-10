@@ -99,7 +99,7 @@ func main() {
 		cfg.GRPC.Port,
 		cfg.HTTP.Port,
 		10*time.Second,
-		true,
+		cfg.HTTP.TLSEnabled,
 	)
 
 	if err := coreserver.Run(ctx, core, grpcServer, gatewayServer); err != nil {

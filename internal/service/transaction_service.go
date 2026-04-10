@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/yogayulanda/go-core/cache"
+	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/go-core/messaging"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
@@ -40,18 +41,28 @@ func (s *TransactionService) CreateTransactionHistory(
 	ctx context.Context,
 	in domain.CreateTransactionHistoryInput,
 ) (string, error) {
+	startedAt := time.Now()
+
 	normalized, err := sanitizeCreateInput(in)
 	if err != nil {
+		s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "validation_failed")
 		return "", err
 	}
 
 	id, err := s.repo.Create(ctx, normalized)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return "", ErrDuplicateReferenceID
+			s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "duplicate_reference")
+			s.emitTransactionLog(ctx, "create_transaction", "", normalized.UserID, "failed", startedAt, "DUPLICATE_REFERENCE")
+			return "", NewDuplicateReferenceIDError()
 		}
-		return "", err
+		s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "repository_error")
+		s.emitTransactionLog(ctx, "create_transaction", "", normalized.UserID, "failed", startedAt, "INTERNAL_ERROR")
+		return "", NewInternalError("failed to create transaction history", err)
 	}
+
+	s.emitServiceLog(ctx, "create_transaction", "success", startedAt, "")
+	s.emitTransactionLog(ctx, "create_transaction", id, normalized.UserID, "success", startedAt, "")
 
 	return id, nil
 }
@@ -60,14 +71,62 @@ func (s *TransactionService) GetTransactionHistoryDetail(
 	ctx context.Context,
 	id string,
 ) (*domain.TransactionHistoryDetail, error) {
-	return s.repo.FindDetailByID(ctx, id)
+	startedAt := time.Now()
+
+	result, err := s.repo.FindDetailByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, domain.ErrTransactionNotFound) {
+			s.emitServiceLog(ctx, "get_transaction_detail", "failed", startedAt, "not_found")
+			return nil, NewNotFoundError("transaction history not found")
+		}
+		s.emitServiceLog(ctx, "get_transaction_detail", "failed", startedAt, "repository_error")
+		return nil, NewInternalError("failed to get transaction history detail", err)
+	}
+
+	s.emitServiceLog(ctx, "get_transaction_detail", "success", startedAt, "")
+	return result, nil
 }
 
 func (s *TransactionService) GetUserHistory(
 	ctx context.Context,
 	filter domain.ListUserHistoryFilter,
 ) ([]domain.TransactionHistory, bool, error) {
-	return s.repo.ListByUser(ctx, filter)
+	startedAt := time.Now()
+
+	items, hasMore, err := s.repo.ListByUser(ctx, filter)
+	if err != nil {
+		s.emitServiceLog(ctx, "get_user_history", "failed", startedAt, "repository_error")
+		return nil, false, NewInternalError("failed to get user history", err)
+	}
+
+	s.emitServiceLog(ctx, "get_user_history", "success", startedAt, "")
+	return items, hasMore, nil
+}
+
+func (s *TransactionService) emitServiceLog(ctx context.Context, operation, status string, startedAt time.Time, errorCode string) {
+	if s.log == nil {
+		return
+	}
+	s.log.LogService(ctx, logger.ServiceLog{
+		Operation:  operation,
+		Status:     status,
+		DurationMs: time.Since(startedAt).Milliseconds(),
+		ErrorCode:  errorCode,
+	})
+}
+
+func (s *TransactionService) emitTransactionLog(ctx context.Context, operation, txID, userID, status string, startedAt time.Time, errorCode string) {
+	if s.log == nil {
+		return
+	}
+	s.log.LogTransaction(ctx, logger.TransactionLog{
+		Operation:     operation,
+		TransactionID: txID,
+		UserID:        userID,
+		Status:        status,
+		DurationMs:    time.Since(startedAt).Milliseconds(),
+		ErrorCode:     errorCode,
+	})
 }
 
 func sanitizeCreateInput(in domain.CreateTransactionHistoryInput) (domain.CreateTransactionHistoryInput, error) {
@@ -137,18 +196,18 @@ func sanitizeCreateInput(in domain.CreateTransactionHistoryInput) (domain.Create
 func validateJSONObject(raw string) error {
 	var decoded any
 	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
-		return fmt.Errorf("metadata_json must be valid JSON object")
+		return errors.New("metadata_json must be valid JSON object")
 	}
 
 	if _, ok := decoded.(map[string]any); !ok {
-		return fmt.Errorf("metadata_json must be valid JSON object")
+		return errors.New("metadata_json must be valid JSON object")
 	}
 
 	return nil
 }
 
-func invalidInput(msg string) error {
-	return fmt.Errorf("%w: %s", ErrInvalidTransactionHistoryInput, msg)
+func invalidInput(msg string) *coreerrors.AppError {
+	return NewInvalidInputError(msg)
 }
 
 func isAlphaString(raw string, expectedLen int) bool {

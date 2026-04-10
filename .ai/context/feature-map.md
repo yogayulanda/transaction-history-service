@@ -11,14 +11,19 @@ Transaction History
 
 location:
 
-internal/repository/transaction_repository.go
+internal/repository/transaction_sql.go
+internal/repository/transaction_sql_test.go
 internal/service/transaction_service.go
-internal/handler/transaction_handler.go
+internal/service/transaction_service_test.go
+internal/service/errors.go
+internal/handler/grpc/handler.go
+internal/handler/grpc/handler_test.go
 
 responsibility:
 
 store transaction records
 retrieve transaction history by user_id
+retrieve transaction detail by id
 
 
 Service Bootstrap
@@ -26,13 +31,28 @@ Service Bootstrap
 location:
 
 cmd/server/main.go
-internal/app/
+internal/app/app.go
 
 responsibility:
 
 initialize service
 configure dependencies
 bootstrap go-core runtime
+
+
+Domain Models
+
+location:
+
+internal/domain/transaction.go
+internal/domain/repository.go
+internal/domain/errors.go
+
+responsibility:
+
+entities and types
+repository interface contract
+domain error definitions
 
 
 Database Persistence

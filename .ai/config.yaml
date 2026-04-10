@@ -1,6 +1,15 @@
 version: v1
 
 context:
+  - .ai/context/project.md
   - .ai/context/core.md
+  - .ai/context/architecture.md
+  - .ai/context/framework-go-core.md
+  - .ai/context/engineering-rules.md
   - .ai/context/rules.md
   - .ai/context/patterns.md
+  - .ai/context/repomap.md
+  - .ai/context/feature-map.md
+  - .ai/context/symbol-map.md
+  - .ai/context/ownership.md
+  - .ai/context/file-index.md

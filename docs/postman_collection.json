@@ -1,0 +1,127 @@
+{
+  "info": {
+    "name": "Transaction History Service API",
+    "description": "API endpoints for the Go Transaction History Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get User History",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/history?userId=usr_123&pageSize=10",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "history"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "usr_123"
+            },
+            {
+              "key": "startDate",
+              "value": "2026-02-01T00:00:00Z",
+              "disabled": true
+            },
+            {
+              "key": "endDate",
+              "value": "2026-02-29T23:59:59Z",
+              "disabled": true
+            },
+            {
+              "key": "productGroup",
+              "value": "transfer",
+              "disabled": true
+            },
+            {
+              "key": "productType",
+              "value": "transfer_internal",
+              "disabled": true
+            },
+            {
+              "key": "transactionRoute",
+              "value": "internal",
+              "disabled": true
+            },
+            {
+              "key": "statusCode",
+              "value": "TRANSACTION_STATUS_CODE_SUCCESS",
+              "disabled": true
+            },
+            {
+              "key": "cursor",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "pageSize",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Transaction History Detail",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/v1/history/:id",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "history",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "txn_123"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create Transaction History",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"usr_123\",\n  \"referenceId\": \"ref_abc123\",\n  \"externalRefId\": \"ext_ref_456\",\n  \"productGroup\": \"transfer\",\n  \"productType\": \"transfer_internal\",\n  \"transactionRoute\": \"internal\",\n  \"channel\": \"mobile_app\",\n  \"direction\": \"debit\",\n  \"amount\": 100000,\n  \"fee\": 0,\n  \"totalAmount\": 100000,\n  \"currency\": \"IDR\",\n  \"statusCode\": \"TRANSACTION_STATUS_CODE_SUCCESS\",\n  \"errorCode\": \"\",\n  \"errorMessage\": \"\",\n  \"sourceService\": \"transfer_service\",\n  \"transactionTime\": \"2026-04-10T12:00:00Z\",\n  \"metadataJson\": \"{\\\"beneficiary_account\\\": \\\"1234567890\\\"}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v1/transaction-histories",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "transaction-histories"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    }
+  ]
+}

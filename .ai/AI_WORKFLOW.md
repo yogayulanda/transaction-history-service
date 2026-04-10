@@ -57,6 +57,7 @@ Each layer contributes specific information required for the AI to operate safel
 
   context/
     project.md
+    core.md
     architecture.md
     framework-go-core.md
     engineering-rules.md
@@ -97,6 +98,7 @@ Files:
 | File                 | Purpose                          |
 | -------------------- | -------------------------------- |
 | project.md           | describes the service purpose    |
+| core.md              | core application concepts        |
 | architecture.md      | defines clean architecture rules |
 | framework-go-core.md | explains go-core framework usage |
 | engineering-rules.md | engineering conventions          |
@@ -150,12 +152,14 @@ Scope Layers:
 repository
 service
 handler
+domain
 
 Allowed Paths:
 
 internal/repository
 internal/service
 internal/handler
+internal/domain
 ```
 
 This ensures AI modifies only relevant parts of the repository.
@@ -340,12 +344,14 @@ Scope Layers:
 repository
 service
 handler
+domain
 
 Allowed Paths:
 
 internal/repository
 internal/service
 internal/handler
+internal/domain
 
 Expected Result:
 

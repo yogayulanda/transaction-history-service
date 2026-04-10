@@ -19,41 +19,88 @@ initialize go-core runtime
 
 Application Wiring
 
-internal/app/
+internal/app/app.go
 
 Main functions:
 
 New()
-initializeDependencies()
 
 
 Handler Layer
 
-internal/handler/
+internal/handler/grpc/handler.go
 
-Typical handlers:
+Handlers:
 
-GetTransactionHistory()
+CreateTransactionHistory()
+GetUserHistory()
+GetTransactionHistoryDetail()
+
+Tests:
+
+internal/handler/grpc/handler_test.go
 
 
 Service Layer
 
-internal/service/
+internal/service/transaction_service.go
 
 Main functions:
 
+CreateTransactionHistory()
+GetTransactionHistoryDetail()
 GetUserHistory()
-CreateTransaction()
+
+Error constructors:
+
+internal/service/errors.go
+
+NewInvalidInputError()
+NewDuplicateReferenceIDError()
+NewNotFoundError()
+NewInternalError()
+
+Tests:
+
+internal/service/transaction_service_test.go
 
 
 Repository Layer
 
-internal/repository/
+internal/repository/transaction_sql.go
 
 Main functions:
 
+Create()
+FindDetailByID()
 ListByUser()
-InsertTransaction()
+
+Tests:
+
+internal/repository/transaction_sql_test.go
+
+
+Domain
+
+internal/domain/transaction.go
+
+Types:
+
+TransactionHistory
+TransactionHistoryDetail
+CreateTransactionHistoryInput
+ListUserHistoryFilter
+
+internal/domain/repository.go
+
+Interfaces:
+
+TransactionRepository
+
+internal/domain/errors.go
+
+ErrTransactionNotFound
+ErrInvalidStatus
 
 
 Database

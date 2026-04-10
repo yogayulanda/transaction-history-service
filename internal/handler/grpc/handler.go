@@ -2,12 +2,12 @@ package grpc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	coreerrors "github.com/yogayulanda/go-core/errors"
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
@@ -68,13 +68,7 @@ func (h *Handler) CreateTransactionHistory(
 		MetadataJSON:     strings.TrimSpace(req.MetadataJson),
 	})
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidTransactionHistoryInput) {
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-		if errors.Is(err, service.ErrDuplicateReferenceID) {
-			return nil, status.Error(codes.AlreadyExists, err.Error())
-		}
-		return nil, status.Error(codes.Internal, "failed to create transaction history")
+		return nil, coreerrors.ToGRPC(err)
 	}
 
 	return &historyv1.CreateTransactionHistoryResponse{
@@ -141,7 +135,7 @@ func (h *Handler) GetUserHistory(
 		Offset:           offset,
 	})
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get user history")
+		return nil, coreerrors.ToGRPC(err)
 	}
 
 	respItems := make([]*historyv1.TransactionHistory, 0, len(items))
@@ -174,10 +168,7 @@ func (h *Handler) GetTransactionHistoryDetail(
 
 	tx, err := h.service.GetTransactionHistoryDetail(ctx, req.Id)
 	if err != nil {
-		if errors.Is(err, domain.ErrTransactionNotFound) {
-			return nil, status.Error(codes.NotFound, "transaction history not found")
-		}
-		return nil, status.Error(codes.Internal, "failed to get transaction history detail")
+		return nil, coreerrors.ToGRPC(err)
 	}
 
 	return &historyv1.GetTransactionHistoryDetailResponse{

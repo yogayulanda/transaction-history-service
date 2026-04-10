@@ -74,7 +74,7 @@ data retrieval
 
 Domain Models
 
-internal/model/
+internal/domain/
 
 Defines entities and domain models.
 

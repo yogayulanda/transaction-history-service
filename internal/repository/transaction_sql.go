@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yogayulanda/go-core/dbtx"
+	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	"gorm.io/gorm"
 )
@@ -68,12 +69,14 @@ func (transactionHistoryStatusEventModel) TableName() string {
 type transactionRepository struct {
 	db    *gorm.DB
 	sqlDB *sql.DB
+	log   logger.Logger
 }
 
-func NewTransactionRepository(db *gorm.DB, sqlDB *sql.DB) domain.TransactionRepository {
+func NewTransactionRepository(db *gorm.DB, sqlDB *sql.DB, log logger.Logger) domain.TransactionRepository {
 	return &transactionRepository{
 		db:    db,
 		sqlDB: sqlDB,
+		log:   log,
 	}
 }
 
@@ -81,6 +84,7 @@ func (r *transactionRepository) Create(
 	ctx context.Context,
 	in domain.CreateTransactionHistoryInput,
 ) (string, error) {
+	startedAt := time.Now()
 	id := uuid.NewString()
 	now := time.Now().UTC()
 	txTime := in.TransactionTime
@@ -151,9 +155,11 @@ func (r *transactionRepository) Create(
 		return nil
 	})
 	if err != nil {
+		r.emitDBLog(ctx, "create", startedAt, "failed", "create_failed")
 		return "", err
 	}
 
+	r.emitDBLog(ctx, "create", startedAt, "success", "")
 	return id, nil
 }
 
@@ -175,11 +181,15 @@ func (r *transactionRepository) FindDetailByID(
 	ctx context.Context,
 	id string,
 ) (*domain.TransactionHistoryDetail, error) {
+	startedAt := time.Now()
+
 	var h transactionHistoryModel
 	if err := r.db.WithContext(ctx).First(&h, "id = ?", id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
+			r.emitDBLog(ctx, "find_detail", startedAt, "success", "")
 			return nil, domain.ErrTransactionNotFound
 		}
+		r.emitDBLog(ctx, "find_detail", startedAt, "failed", "query_failed")
 		return nil, err
 	}
 
@@ -188,10 +198,12 @@ func (r *transactionRepository) FindDetailByID(
 		if err == gorm.ErrRecordNotFound {
 			d.MetadataJSON = "{}"
 		} else {
+			r.emitDBLog(ctx, "find_detail", startedAt, "failed", "query_failed")
 			return nil, err
 		}
 	}
 
+	r.emitDBLog(ctx, "find_detail", startedAt, "success", "")
 	return &domain.TransactionHistoryDetail{
 		TransactionHistory: toDomainHistory(h),
 		MetadataJSON:       d.MetadataJSON,
@@ -204,6 +216,8 @@ func (r *transactionRepository) ListByUser(
 	ctx context.Context,
 	filter domain.ListUserHistoryFilter,
 ) ([]domain.TransactionHistory, bool, error) {
+	startedAt := time.Now()
+
 	q := r.db.WithContext(ctx).
 		Model(&transactionHistoryModel{}).
 		Where("user_id = ?", filter.UserID).
@@ -231,6 +245,7 @@ func (r *transactionRepository) ListByUser(
 	limit := filter.PageSize + 1
 	var rows []transactionHistoryModel
 	if err := q.Offset(filter.Offset).Limit(limit).Find(&rows).Error; err != nil {
+		r.emitDBLog(ctx, "list_by_user", startedAt, "failed", "query_failed")
 		return nil, false, err
 	}
 
@@ -244,7 +259,21 @@ func (r *transactionRepository) ListByUser(
 		out = append(out, toDomainHistory(row))
 	}
 
+	r.emitDBLog(ctx, "list_by_user", startedAt, "success", "")
 	return out, hasMore, nil
+}
+
+func (r *transactionRepository) emitDBLog(ctx context.Context, operation string, startedAt time.Time, status, errorCode string) {
+	if r.log == nil {
+		return
+	}
+	r.log.LogDB(ctx, logger.DBLog{
+		Operation:  operation,
+		DBName:     "transaction_history",
+		Status:     status,
+		DurationMs: time.Since(startedAt).Milliseconds(),
+		ErrorCode:  errorCode,
+	})
 }
 
 func toDomainHistory(h transactionHistoryModel) domain.TransactionHistory {

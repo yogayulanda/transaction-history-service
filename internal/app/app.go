@@ -48,11 +48,18 @@ func New(core *coreapp.App) (*App, error) {
 	}
 
 	var publisher messaging.Publisher
+	if core.Config().Kafka.Enabled {
+		pub, err := core.NewKafkaPublisher()
+		if err != nil {
+			return nil, fmt.Errorf("init kafka publisher failed: %w", err)
+		}
+		publisher = pub
+	}
 
 	var log logger.Logger = core.Logger()
 
 	txService := service.NewTransactionService(
-		repository.NewTransactionRepository(gormDB, sqlDB.DB),
+		repository.NewTransactionRepository(gormDB, sqlDB.DB, log),
 		cacheClient,
 		publisher,
 		log,
