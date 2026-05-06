@@ -66,6 +66,18 @@ func (transactionHistoryStatusEventModel) TableName() string {
 	return "dbo.transaction_history_status_events"
 }
 
+type transactionErrorDefinitionModel struct {
+	ErrorCode   string    `gorm:"column:error_code;primaryKey"`
+	UserMessage string    `gorm:"column:user_message"`
+	DetailsJSON string    `gorm:"column:details_json"`
+	IsActive    bool      `gorm:"column:is_active"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
+}
+
+func (transactionErrorDefinitionModel) TableName() string {
+	return "dbo.transaction_error_definitions"
+}
+
 type transactionRepository struct {
 	db    *gorm.DB
 	sqlDB *sql.DB
@@ -261,6 +273,35 @@ func (r *transactionRepository) ListByUser(
 
 	r.emitDBLog(ctx, "list_by_user", startedAt, "success", "")
 	return out, hasMore, nil
+}
+
+func (r *transactionRepository) ListActiveErrorDefinitions(
+	ctx context.Context,
+) ([]domain.ErrorDefinition, error) {
+	startedAt := time.Now()
+
+	var rows []transactionErrorDefinitionModel
+	if err := r.db.WithContext(ctx).
+		Model(&transactionErrorDefinitionModel{}).
+		Where("is_active = ?", true).
+		Find(&rows).Error; err != nil {
+		r.emitDBLog(ctx, "list_error_definitions", startedAt, "failed", "query_failed")
+		return nil, err
+	}
+
+	out := make([]domain.ErrorDefinition, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, domain.ErrorDefinition{
+			ErrorCode:   row.ErrorCode,
+			UserMessage: row.UserMessage,
+			DetailsJSON: row.DetailsJSON,
+			IsActive:    row.IsActive,
+			UpdatedAt:   row.UpdatedAt,
+		})
+	}
+
+	r.emitDBLog(ctx, "list_error_definitions", startedAt, "success", "")
+	return out, nil
 }
 
 func (r *transactionRepository) emitDBLog(ctx context.Context, operation string, startedAt time.Time, status, errorCode string) {

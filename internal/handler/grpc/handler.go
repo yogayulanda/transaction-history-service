@@ -11,8 +11,6 @@ import (
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -34,12 +32,12 @@ func (h *Handler) CreateTransactionHistory(
 	req *historyv1.CreateTransactionHistoryRequest,
 ) (*historyv1.CreateTransactionHistoryResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is required")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "request", Reason: "required"}))
 	}
 
 	statusCode := fromStatusCode(req.StatusCode)
 	if statusCode == "" {
-		return nil, status.Error(codes.InvalidArgument, "status_code is invalid")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "status_code", Reason: "invalid"}))
 	}
 
 	txTime := time.Time{}
@@ -81,24 +79,24 @@ func (h *Handler) GetUserHistory(
 	req *historyv1.GetUserHistoryRequest,
 ) (*historyv1.GetUserHistoryResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is required")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "request", Reason: "required"}))
 	}
 
 	userID := strings.TrimSpace(req.UserId)
 	if userID == "" {
-		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "user_id", Reason: "required"}))
 	}
 
 	startDate, err := parseDate(req.StartDate)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "start_date must be RFC3339")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "start_date", Reason: "must be RFC3339"}))
 	}
 	endDate, err := parseDate(req.EndDate)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "end_date must be RFC3339")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "end_date", Reason: "must be RFC3339"}))
 	}
 	if startDate != nil && endDate != nil && startDate.After(*endDate) {
-		return nil, status.Error(codes.InvalidArgument, "start_date must be before or equal to end_date")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "start_date", Reason: "must be before or equal to end_date"}))
 	}
 
 	pageSize := int(req.PageSize)
@@ -113,14 +111,14 @@ func (h *Handler) GetUserHistory(
 	if strings.TrimSpace(req.Cursor) != "" {
 		parsed, err := strconv.Atoi(strings.TrimSpace(req.Cursor))
 		if err != nil || parsed < 0 {
-			return nil, status.Error(codes.InvalidArgument, "cursor must be non-negative integer")
+			return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "cursor", Reason: "must be non-negative integer"}))
 		}
 		offset = parsed
 	}
 
 	statusCode := fromStatusCode(req.StatusCode)
 	if req.StatusCode != historyv1.TransactionStatusCode_TRANSACTION_STATUS_CODE_UNSPECIFIED && statusCode == "" {
-		return nil, status.Error(codes.InvalidArgument, "status_code is invalid")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "status_code", Reason: "invalid"}))
 	}
 
 	items, hasMore, err := h.service.GetUserHistory(ctx, domain.ListUserHistoryFilter{
@@ -160,10 +158,10 @@ func (h *Handler) GetTransactionHistoryDetail(
 	req *historyv1.GetTransactionHistoryDetailRequest,
 ) (*historyv1.GetTransactionHistoryDetailResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request is required")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "request", Reason: "required"}))
 	}
 	if strings.TrimSpace(req.Id) == "" {
-		return nil, status.Error(codes.InvalidArgument, "id is required")
+		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "id", Reason: "required"}))
 	}
 
 	tx, err := h.service.GetTransactionHistoryDetail(ctx, req.Id)

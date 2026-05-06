@@ -17,10 +17,11 @@ import (
 )
 
 type TransactionService struct {
-	repo      domain.TransactionRepository
-	cache     cache.Cache
-	publisher messaging.Publisher
-	log       logger.Logger
+	repo          domain.TransactionRepository
+	cache         cache.Cache
+	publisher     messaging.Publisher
+	log           logger.Logger
+	errorResolver ErrorDefinitionResolver
 }
 
 func NewTransactionService(
@@ -28,12 +29,14 @@ func NewTransactionService(
 	cache cache.Cache,
 	publisher messaging.Publisher,
 	log logger.Logger,
+	errorResolver ErrorDefinitionResolver,
 ) *TransactionService {
 	return &TransactionService{
-		repo:      repo,
-		cache:     cache,
-		publisher: publisher,
-		log:       log,
+		repo:          repo,
+		cache:         cache,
+		publisher:     publisher,
+		log:           log,
+		errorResolver: errorResolver,
 	}
 }
 
@@ -43,7 +46,7 @@ func (s *TransactionService) CreateTransactionHistory(
 ) (string, error) {
 	startedAt := time.Now()
 
-	normalized, err := sanitizeCreateInput(in)
+	normalized, err := s.sanitizeCreateInput(in)
 	if err != nil {
 		s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "validation_failed")
 		return "", err
@@ -54,11 +57,11 @@ func (s *TransactionService) CreateTransactionHistory(
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "duplicate_reference")
 			s.emitTransactionLog(ctx, "create_transaction", "", normalized.UserID, "failed", startedAt, "DUPLICATE_REFERENCE")
-			return "", NewDuplicateReferenceIDError()
+			return "", NewDuplicateReferenceIDError(s.errorResolver)
 		}
 		s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "repository_error")
 		s.emitTransactionLog(ctx, "create_transaction", "", normalized.UserID, "failed", startedAt, "INTERNAL_ERROR")
-		return "", NewInternalError("failed to create transaction history", err)
+		return "", NewInternalError("failed to create transaction history", err, s.errorResolver)
 	}
 
 	s.emitServiceLog(ctx, "create_transaction", "success", startedAt, "")
@@ -77,10 +80,10 @@ func (s *TransactionService) GetTransactionHistoryDetail(
 	if err != nil {
 		if errors.Is(err, domain.ErrTransactionNotFound) {
 			s.emitServiceLog(ctx, "get_transaction_detail", "failed", startedAt, "not_found")
-			return nil, NewNotFoundError("transaction history not found")
+			return nil, NewNotFoundError("transaction history not found", s.errorResolver)
 		}
 		s.emitServiceLog(ctx, "get_transaction_detail", "failed", startedAt, "repository_error")
-		return nil, NewInternalError("failed to get transaction history detail", err)
+		return nil, NewInternalError("failed to get transaction history detail", err, s.errorResolver)
 	}
 
 	s.emitServiceLog(ctx, "get_transaction_detail", "success", startedAt, "")
@@ -96,7 +99,7 @@ func (s *TransactionService) GetUserHistory(
 	items, hasMore, err := s.repo.ListByUser(ctx, filter)
 	if err != nil {
 		s.emitServiceLog(ctx, "get_user_history", "failed", startedAt, "repository_error")
-		return nil, false, NewInternalError("failed to get user history", err)
+		return nil, false, NewInternalError("failed to get user history", err, s.errorResolver)
 	}
 
 	s.emitServiceLog(ctx, "get_user_history", "success", startedAt, "")
@@ -129,7 +132,9 @@ func (s *TransactionService) emitTransactionLog(ctx context.Context, operation, 
 	})
 }
 
-func sanitizeCreateInput(in domain.CreateTransactionHistoryInput) (domain.CreateTransactionHistoryInput, error) {
+func (s *TransactionService) sanitizeCreateInput(
+	in domain.CreateTransactionHistoryInput,
+) (domain.CreateTransactionHistoryInput, error) {
 	in.UserID = strings.TrimSpace(in.UserID)
 	in.ReferenceID = strings.TrimSpace(in.ReferenceID)
 	in.ExternalRefID = strings.TrimSpace(in.ExternalRefID)
@@ -145,40 +150,40 @@ func sanitizeCreateInput(in domain.CreateTransactionHistoryInput) (domain.Create
 	in.SourceService = strings.TrimSpace(in.SourceService)
 
 	if in.UserID == "" {
-		return in, invalidInput("user_id is required")
+		return in, s.invalidInput("user_id is required")
 	}
 	if in.ReferenceID == "" {
-		return in, invalidInput("reference_id is required")
+		return in, s.invalidInput("reference_id is required")
 	}
 	if in.Channel == "" {
-		return in, invalidInput("channel is required")
+		return in, s.invalidInput("channel is required")
 	}
 	if in.ProductGroup == "" {
-		return in, invalidInput("product_group is required")
+		return in, s.invalidInput("product_group is required")
 	}
 	if in.ProductType == "" {
-		return in, invalidInput("product_type is required")
+		return in, s.invalidInput("product_type is required")
 	}
 	if in.StatusCode == "" {
-		return in, invalidInput("status_code is required")
+		return in, s.invalidInput("status_code is required")
 	}
 	if in.SourceService == "" {
-		return in, invalidInput("source_service is required")
+		return in, s.invalidInput("source_service is required")
 	}
 	if in.Currency == "" {
-		return in, invalidInput("currency is required")
+		return in, s.invalidInput("currency is required")
 	}
 	if !isAlphaString(in.Currency, 3) {
-		return in, invalidInput("currency must be a 3-letter code")
+		return in, s.invalidInput("currency must be a 3-letter code")
 	}
 	if in.Amount < 0 {
-		return in, invalidInput("amount must be non-negative")
+		return in, s.invalidInput("amount must be non-negative")
 	}
 	if in.Fee < 0 {
-		return in, invalidInput("fee must be non-negative")
+		return in, s.invalidInput("fee must be non-negative")
 	}
 	if in.TotalAmount < 0 {
-		return in, invalidInput("total_amount must be non-negative")
+		return in, s.invalidInput("total_amount must be non-negative")
 	}
 
 	if strings.TrimSpace(in.MetadataJSON) == "" {
@@ -186,7 +191,7 @@ func sanitizeCreateInput(in domain.CreateTransactionHistoryInput) (domain.Create
 	} else {
 		in.MetadataJSON = strings.TrimSpace(in.MetadataJSON)
 		if err := validateJSONObject(in.MetadataJSON); err != nil {
-			return in, invalidInput(err.Error())
+			return in, s.invalidInput(err.Error())
 		}
 	}
 
@@ -206,8 +211,8 @@ func validateJSONObject(raw string) error {
 	return nil
 }
 
-func invalidInput(msg string) *coreerrors.AppError {
-	return NewInvalidInputError(msg)
+func (s *TransactionService) invalidInput(msg string) *coreerrors.AppError {
+	return NewInvalidInputError(msg, s.errorResolver)
 }
 
 func isAlphaString(raw string, expectedLen int) bool {

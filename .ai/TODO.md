@@ -1,64 +1,17 @@
-AI System Improvements
+# AI Context TODO
 
-Phase 1 (Next)
+## Near-Term
 
-AI CLI tool
+- Keep `.ai` aligned whenever API contract, validation behavior, or migration schema changes.
+- Keep `README.md` and `docs/api.md` in sync with actual runtime behavior.
+- Add context notes when new auth/middleware behavior is introduced from go-core upgrades.
 
-ai plan
-ai run
-ai fix
-ai review
+## When Feature Scope Expands
 
-Phase 2
+- Add focused context docs only if needed (for example: `api-map.md`, `dependency-map.md`).
+- Prefer extending existing canonical files before introducing new files.
 
-Dependency map
+## Hygiene
 
-AI understands package dependencies.
-
-.ai/context/dependency-map.md
-
-Phase 3
-
-API map
-
-AI understands endpoints and RPC contracts.
-
-.ai/context/api-map.md
-
-Phase 4
-
-Config map
-
-AI understands runtime configuration.
-
-.ai/context/config-map.md
-
-Phase 5
-
-Semantic code search
-
-vector embedding index.
-
-Phase 6
-
-Agent workflow
-
-plan → execute → test → fix loop.
-
-Phase 7
-
-CI integration
-
-AI runs tests automatically.
-
-Phase 8
-
-PR automation
-
-AI creates pull requests.
-
-Phase 9
-
-Multi-service awareness
-
-AI understands cross-service architecture.
+- Do not reintroduce legacy `.ai/context/*` structure.
+- Do not include generated files, long logs, or secrets in AI context files.

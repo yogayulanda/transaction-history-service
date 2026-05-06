@@ -7,3 +7,7 @@ type TransactionRepository interface {
 	FindDetailByID(ctx context.Context, id string) (*TransactionHistoryDetail, error)
 	ListByUser(ctx context.Context, filter ListUserHistoryFilter) ([]TransactionHistory, bool, error)
 }
+
+type ErrorDefinitionRepository interface {
+	ListActiveErrorDefinitions(ctx context.Context) ([]ErrorDefinition, error)
+}

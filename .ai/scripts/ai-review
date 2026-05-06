@@ -1,20 +1,56 @@
 #!/usr/bin/env bash
 
-FILE=$1
+set -euo pipefail
 
+FILE=${1:-}
 if [ -z "$FILE" ]; then
   echo "Usage: ai-review <file>"
   exit 1
 fi
 
+if [ ! -f "$FILE" ]; then
+  echo "File not found: $FILE"
+  exit 1
+fi
+
+if [ ! -f .ai/config.yaml ]; then
+  echo "Missing .ai/config.yaml"
+  exit 1
+fi
+
+CONTEXT_FILES=$(awk '
+  /^context:/ { in_context=1; next }
+  in_context && /^  - / {
+    sub(/^  - /, "", $0)
+    print
+    next
+  }
+  in_context && $0 !~ /^  - / { in_context=0 }
+' .ai/config.yaml)
+
 codex "$(
-cat .ai/prompts/review.md
+  echo "CANONICAL CONTEXT"
+  echo "------------------------------------"
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    [ -f "$f" ] || continue
+    echo
+    echo "## FILE: $f"
+    cat "$f"
+  done <<< "$CONTEXT_FILES"
 
-echo
+  echo
+  echo "PROMPT"
+  echo "------------------------------------"
+  cat .ai/prompts/review.md
 
-echo "Review the following file:"
+  echo
+  echo "TARGET FILE"
+  echo "------------------------------------"
+  echo "$FILE"
 
-echo
-
-cat "$FILE"
+  echo
+  echo "FILE CONTENT"
+  echo "------------------------------------"
+  cat "$FILE"
 )"

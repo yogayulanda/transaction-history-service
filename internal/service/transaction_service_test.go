@@ -14,6 +14,20 @@ type fakeRepository struct {
 	createFn func(ctx context.Context, in domain.CreateTransactionHistoryInput) (string, error)
 }
 
+type testResolver struct {
+	userMessage string
+	details     []coreerrors.Detail
+}
+
+func (r testResolver) Resolve(code string) (string, []coreerrors.Detail, bool) {
+	if code != "TRH-VAL-001" {
+		return "", nil, false
+	}
+	out := make([]coreerrors.Detail, len(r.details))
+	copy(out, r.details)
+	return r.userMessage, out, true
+}
+
 func (f fakeRepository) Create(ctx context.Context, in domain.CreateTransactionHistoryInput) (string, error) {
 	if f.createFn != nil {
 		return f.createFn(ctx, in)
@@ -30,7 +44,7 @@ func (f fakeRepository) ListByUser(context.Context, domain.ListUserHistoryFilter
 }
 
 func TestCreateTransactionHistory_ValidatesBusinessFields(t *testing.T) {
-	svc := NewTransactionService(fakeRepository{}, nil, nil, nil)
+	svc := NewTransactionService(fakeRepository{}, nil, nil, nil, nil)
 
 	_, err := svc.CreateTransactionHistory(context.Background(), domain.CreateTransactionHistoryInput{
 		UserID:        "user-1",
@@ -52,6 +66,9 @@ func TestCreateTransactionHistory_ValidatesBusinessFields(t *testing.T) {
 	if appErr.Code != coreerrors.CodeInvalidRequest {
 		t.Fatalf("expected INVALID_REQUEST code, got %s", appErr.Code)
 	}
+	if appErr.FormatCode() != "TRH-VAL-001" {
+		t.Fatalf("expected format code TRH-VAL-001, got %s", appErr.FormatCode())
+	}
 }
 
 func TestCreateTransactionHistory_NormalizesAndDefaultsInput(t *testing.T) {
@@ -61,7 +78,7 @@ func TestCreateTransactionHistory_NormalizesAndDefaultsInput(t *testing.T) {
 			saved = in
 			return "tx-123", nil
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 
 	id, err := svc.CreateTransactionHistory(context.Background(), domain.CreateTransactionHistoryInput{
 		UserID:        " user-1 ",
@@ -93,7 +110,7 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 		createFn: func(context.Context, domain.CreateTransactionHistoryInput) (string, error) {
 			return "", gorm.ErrDuplicatedKey
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 
 	_, err := svc.CreateTransactionHistory(context.Background(), domain.CreateTransactionHistoryInput{
 		UserID:        "user-1",
@@ -112,5 +129,33 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 	}
 	if appErr.Code != coreerrors.CodeInvalidRequest {
 		t.Fatalf("expected INVALID_REQUEST code, got %s", appErr.Code)
+	}
+	if appErr.FormatCode() != "TRH-VAL-002" {
+		t.Fatalf("expected format code TRH-VAL-002, got %s", appErr.FormatCode())
+	}
+}
+
+func TestCreateTransactionHistory_UsesDynamicValidationMessageWhenAvailable(t *testing.T) {
+	svc := NewTransactionService(fakeRepository{}, nil, nil, nil, testResolver{
+		userMessage: "permintaan tidak valid",
+		details: []coreerrors.Detail{
+			{Field: "user_id", Reason: "harus diisi"},
+		},
+	})
+
+	_, err := svc.CreateTransactionHistory(context.Background(), domain.CreateTransactionHistoryInput{})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	var appErr *coreerrors.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+	if appErr.UserMessage != "permintaan tidak valid" {
+		t.Fatalf("expected dynamic user message, got %q", appErr.UserMessage)
+	}
+	if len(appErr.Details) != 1 || appErr.Details[0].Field != "user_id" {
+		t.Fatalf("unexpected dynamic details: %+v", appErr.Details)
 	}
 }

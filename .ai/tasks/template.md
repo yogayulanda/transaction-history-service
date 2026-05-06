@@ -1,36 +1,20 @@
-Task Context
+# Task: <name>
 
-Task:
-describe the task
+## Goal
+<what must be achieved>
 
-Goal:
-what should be achieved
+## Scope
+- handler | service | repository | domain | proto | migration
 
-Scope Layers:
+## Allowed Paths
+- <path 1>
+- <path 2>
 
-repository
-service
-handler
+## Constraints
+- keep behavior backward compatible unless stated otherwise
+- avoid unrelated refactor
 
-Allowed Paths:
-
-internal/repository
-internal/service
-internal/handler
-
-Do NOT modify:
-
-cmd/
-proto/
-migrations/
-framework code
-
-Constraints:
-
-follow clean architecture
-use go-core infrastructure
-minimal code changes
-
-Expected Output:
-
-describe expected result
+## Acceptance
+- [ ] behavior implemented
+- [ ] tests pass
+- [ ] `.ai` context updated if behavior changed

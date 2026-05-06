@@ -1,101 +1,48 @@
-AI Development System
+# .ai/ — AI Context for transaction-history-service
 
-This repository includes an AI-assisted development workflow designed to help engineers implement features, fix bugs, and review code using AI tools such as Codex.
+This folder is the canonical AI context for this repository.
 
-The system provides structured context so AI can understand the architecture of the project without scanning the entire repository.
+## Read Order
 
-Folder Structure
+1. `.ai/context.md` — service purpose, runtime flow, hard constraints
+2. `.ai/architecture.md` — layer boundaries and system structure
+3. Task-specific files (modules, security, transactions, etc.)
 
-.ai/context
-Contains project knowledge and architecture information.
+## Task Routing
 
-.ai/prompts
-Defines AI roles and instructions.
+| Working on | Read |
+|---|---|
+| API behavior / contract | `.ai/modules.md`, `.ai/data-flow.md` |
+| SQL persistence / migration | `.ai/transactions.md`, `.ai/modules.md` |
+| Auth / JWT / signature / pprof | `.ai/security.md`, `.ai/integrations.md` |
+| Runtime config / startup | `.ai/integrations.md`, `.ai/workflow.md` |
+| Code style / scope safety | `.ai/conventions.md` |
+| Design rationale | `.ai/decisions.md` |
 
-.ai/tasks
-Contains task definitions for AI execution.
+## Structure
 
-Workflow
+```
+.ai/
+├── context.md
+├── architecture.md
+├── modules.md
+├── data-flow.md
+├── transactions.md
+├── security.md
+├── integrations.md
+├── conventions.md
+├── decisions.md
+├── workflow.md
+├── AI_WORKFLOW.md
+├── STATUS.md
+├── config.yaml
+├── prompts/
+├── tasks/
+└── scripts/
+```
 
-1. Create a task
+## Maintenance Rule
 
-.ai/tasks/feature_example.md
-
-2. Plan the task
-
-forge plan feature_example
-
-3. Execute the task
-
-forge run feature_example
-
-4. Build project
-
-go build ./...
-
-5. Fix errors if needed
-
-forge fix feature_example --error "error message"
-
-6. Review code
-
-forge review path/to/file.go
-
-7. Inspect the final prompt if needed
-
-forge prompt feature_example
-
-Task Naming Convention
-
-feature_*
-fix_*
-refactor_*
-test_*
-
-This determines which AI prompt will be used when explicit task metadata is not present.
-
-Context Layers
-
-Project Context
-Core System Context
-Architecture Context
-Framework Context
-Repository Map
-Feature Map
-Symbol Map
-Engineering Rules
-Ownership Rules
-
-These layers allow AI to understand the repository structure quickly.
-
-Repository Detection
-
-The standalone `forge` CLI starts from the current working directory and walks upward until it finds `.ai/`.
-
-If `.ai/` is not found, it returns:
-
-AI context directory (.ai) not found
-
-Prompt Debugging
-
-Use:
-
-forge --print-prompt run feature_example
-forge --save-prompt /tmp/feature_example.prompt run feature_example
-forge prompt feature_example
-
-Safety Guards
-
-The system prevents AI from modifying files outside the defined task scope.
-
-Tasks must define:
-
-Allowed Paths
-
-Only files within those paths may be modified.
-
-Future Improvements
-
-See:
-
-.ai/TODO.md
+- Update the relevant `.ai/*.md` file whenever behavior changes.
+- Keep entries short and factual.
+- Do not duplicate generated code or full logs in context files.

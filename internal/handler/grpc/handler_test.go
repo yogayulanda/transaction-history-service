@@ -42,7 +42,7 @@ func (s stubRepository) ListByUser(ctx context.Context, filter domain.ListUserHi
 
 func TestCreateTransactionHistory_ReturnsInvalidArgumentForBusinessValidation(t *testing.T) {
 	handler := &Handler{
-		service: service.NewTransactionService(stubRepository{}, nil, nil, nil),
+		service: service.NewTransactionService(stubRepository{}, nil, nil, nil, nil),
 	}
 
 	_, err := handler.CreateTransactionHistory(context.Background(), &historyv1.CreateTransactionHistoryRequest{
@@ -62,10 +62,16 @@ func TestCreateTransactionHistory_ReturnsInvalidArgumentForBusinessValidation(t 
 		t.Fatalf("expected invalid argument, got %v", status.Code(err))
 	}
 
-	// Verify ErrorInfo contains go-core reason code.
-	appCode := coreerrors.CodeFromGRPC(err)
+	// Verify ErrorInfo contains go-core reason code and service taxonomy metadata.
+	appCode, domain, category, number, _, isCore := coreerrors.ErrorInfoFromGRPC(err)
+	if !isCore {
+		t.Fatal("expected go-core error info")
+	}
 	if appCode != coreerrors.CodeInvalidRequest {
 		t.Fatalf("expected INVALID_REQUEST reason, got %s", appCode)
+	}
+	if domain != "TRH" || category != "VAL" || number != "001" {
+		t.Fatalf("unexpected taxonomy metadata: domain=%s category=%s number=%s", domain, category, number)
 	}
 }
 
@@ -75,7 +81,7 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 			createFn: func(context.Context, domain.CreateTransactionHistoryInput) (string, error) {
 				return "", gorm.ErrDuplicatedKey
 			},
-		}, nil, nil, nil),
+		}, nil, nil, nil, nil),
 	}
 
 	_, err := handler.CreateTransactionHistory(context.Background(), &historyv1.CreateTransactionHistoryRequest{
@@ -99,7 +105,7 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 
 func TestGetUserHistory_RejectsInvalidDateRange(t *testing.T) {
 	handler := &Handler{
-		service: service.NewTransactionService(stubRepository{}, nil, nil, nil),
+		service: service.NewTransactionService(stubRepository{}, nil, nil, nil, nil),
 	}
 
 	_, err := handler.GetUserHistory(context.Background(), &historyv1.GetUserHistoryRequest{
@@ -117,7 +123,7 @@ func TestGetUserHistory_RejectsInvalidDateRange(t *testing.T) {
 
 func TestGetTransactionHistoryDetail_RequiresID(t *testing.T) {
 	handler := &Handler{
-		service: service.NewTransactionService(stubRepository{}, nil, nil, nil),
+		service: service.NewTransactionService(stubRepository{}, nil, nil, nil, nil),
 	}
 
 	_, err := handler.GetTransactionHistoryDetail(context.Background(), &historyv1.GetTransactionHistoryDetailRequest{})
@@ -135,7 +141,7 @@ func TestGetTransactionHistoryDetail_MapsNotFound(t *testing.T) {
 			detailFn: func(_ context.Context, _ string) (*domain.TransactionHistoryDetail, error) {
 				return nil, domain.ErrTransactionNotFound
 			},
-		}, nil, nil, nil),
+		}, nil, nil, nil, nil),
 	}
 
 	_, err := handler.GetTransactionHistoryDetail(context.Background(), &historyv1.GetTransactionHistoryDetailRequest{

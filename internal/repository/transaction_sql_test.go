@@ -126,3 +126,33 @@ func TestListByUser_ReturnsHasMoreAndMapsChannel(t *testing.T) {
 		t.Fatalf("unmet sql expectations: %v", err)
 	}
 }
+
+func TestListActiveErrorDefinitions_ReturnsOnlyActiveRows(t *testing.T) {
+	repo, mock, cleanup := newMockRepository(t)
+	defer cleanup()
+
+	now := time.Date(2026, 5, 6, 1, 2, 3, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"error_code", "user_message", "details_json", "is_active", "updated_at",
+	}).
+		AddRow("TRH-VAL-001", "invalid request", `[{\"field\":\"user_id\",\"reason\":\"required\"}]`, true, now).
+		AddRow("TRH-REC-001", "internal server error", nil, true, now)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "dbo"."transaction_error_definitions" WHERE is_active = @p1`)).
+		WithArgs(true).
+		WillReturnRows(rows)
+
+	out, err := repo.ListActiveErrorDefinitions(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(out))
+	}
+	if out[0].ErrorCode != "TRH-VAL-001" || out[1].ErrorCode != "TRH-REC-001" {
+		t.Fatalf("unexpected output: %+v", out)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}

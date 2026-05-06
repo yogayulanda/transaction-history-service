@@ -81,13 +81,14 @@ Konfigurasi utama yang perlu diisi:
 - `GRPC_PORT`
 - `HTTP_PORT`
 - `MIGRATION_AUTO_RUN` bila ingin migration jalan saat startup
+- pengaturan auth/security sesuai kebutuhan (`INTERNAL_JWT_*`, `AUTH_SIGNATURE_*`, `HTTP_PPROF_ENABLED`)
 
 ### 2. Jalankan migration
 
 Migration utama ada di `migrations/transaction`.
 
 - `0001_init_transaction_history.up.sql` berisi baseline schema
-- `0002_seed_transaction_history.up.sql` sekarang no-op agar production baseline bersih
+- `0002_seed_transaction_history.up.sql` no-op agar production baseline bersih
 - `migrations/dev/dev_seed_transaction_history.sql` dipakai hanya untuk local/manual seed
 
 ### 3. Generate protobuf
@@ -130,11 +131,18 @@ HTTP gateway dari `go-core` juga tersedia:
 - `GET /version`
 - `GET /metrics`
 
-## Catatan Kontrak
+## Catatan Kontrak Runtime
 
 - `CreateTransactionHistory` dipertahankan sebagai fallback/manual ingestion path dan jalur testing insert.
-- Jalur ingest utama ke depan boleh tetap memakai Kafka atau mekanisme event lain.
-- Pagination `GetUserHistory` saat ini masih offset-based placeholder; desain final bisa diganti ke cursor stabil berbasis `transaction_time + id`.
+- `GetUserHistory` menggunakan cursor offset placeholder (`nextCursor` berupa string angka offset).
+- Saat `startDate` dan `endDate` diisi, handler memvalidasi `startDate <= endDate`.
+- Validasi field wajib business untuk create terjadi di service layer (termasuk `channel`, `sourceService`, `currency`, `statusCode`, dll).
+
+## Error, Auth, dan Security
+
+- Error service dibentuk sebagai `go-core/errors.AppError` dan dipetakan oleh handler via `coreerrors.ToGRPC`.
+- Response error ke client disanitasi oleh kontrak error `go-core`.
+- JWT enforcement dan signature middleware dikontrol oleh konfigurasi `go-core`, bukan middleware custom di service ini.
 
 ## Known Limitations
 

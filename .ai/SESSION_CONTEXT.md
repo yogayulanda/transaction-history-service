@@ -1,84 +1,31 @@
-AI Engineering System Context
+# AI Session Context
 
-Project type:
-Go microservices.
+## Repository
 
-Framework:
-go-core.
+- Service: `transaction-history-service`
+- Language: Go `1.24.x`
+- Framework runtime: `go-core` (local replace `../go-core`)
 
-Service:
-transaction-history-service.
+## Current Architecture
 
-Workspace structure:
+- Layering: `handler -> service -> repository`
+- Transport: gRPC + grpc-gateway HTTP projection
+- Persistence: SQL Server (`transaction_history`)
 
-projects/
-  go-core/
-  transaction-history-service/
+## Runtime and Infra Ownership
 
-Architecture:
+- Service owns: business validation, domain mapping, persistence queries.
+- go-core owns: bootstrap, config validation, auth middleware, signature middleware, pprof toggle, logging pipeline, metrics/tracing, lifecycle.
 
-handler → service → repository
+## Current Behavior Snapshot
 
-handler:
-transport layer
+- `CreateTransactionHistory` is internal fallback/manual ingestion API.
+- `GetUserHistory` uses offset-based cursor placeholder (numeric string).
+- Date range validation (`start_date <= end_date`) is enforced in handler.
+- Create flow writes history + detail + initial status event in one SQL transaction.
+- gRPC errors are mapped using `coreerrors.ToGRPC`.
 
-service:
-business logic
+## Canonical AI Context
 
-repository:
-database access
-
-Framework responsibilities (go-core):
-
-- bootstrap
-- config
-- database
-- logger
-- lifecycle
-- grpc
-- http gateway
-- observability
-
-Infrastructure must come from go-core.
-
-Purpose of AI system:
-
-Assist engineers with:
-
-- planning tasks
-- implementing features
-- fixing build errors
-- generating tests
-- reviewing code
-
-Local AI configuration:
-
-.ai/context
-.ai/prompts
-
-Context files provide project knowledge.
-
-Prompt files define AI roles.
-
-Token strategy:
-
-LEVEL 1
-prompt only
-
-LEVEL 2
-prompt + core context
-
-LEVEL 3
-full context
-
-Engineer workflow:
-
-build
-↓
-fix errors with AI
-↓
-plan feature
-↓
-execute feature
-↓
-review code
+- Canonical docs are root `.ai/*.md` files listed in `.ai/config.yaml`.
+- No legacy `.ai/context/*` dependency.

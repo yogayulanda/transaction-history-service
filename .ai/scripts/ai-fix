@@ -1,16 +1,46 @@
 #!/usr/bin/env bash
 
-ERROR=$1
+set -euo pipefail
 
+ERROR=${1:-}
 if [ -z "$ERROR" ]; then
   echo "Usage: ai-fix \"error message\""
   exit 1
 fi
 
-codex "$(
-cat .ai/prompts/fix.md
+if [ ! -f .ai/config.yaml ]; then
+  echo "Missing .ai/config.yaml"
+  exit 1
+fi
 
-echo
-echo "Error:"
-echo "$ERROR"
+CONTEXT_FILES=$(awk '
+  /^context:/ { in_context=1; next }
+  in_context && /^  - / {
+    sub(/^  - /, "", $0)
+    print
+    next
+  }
+  in_context && $0 !~ /^  - / { in_context=0 }
+' .ai/config.yaml)
+
+codex "$(
+  echo "CANONICAL CONTEXT"
+  echo "------------------------------------"
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    [ -f "$f" ] || continue
+    echo
+    echo "## FILE: $f"
+    cat "$f"
+  done <<< "$CONTEXT_FILES"
+
+  echo
+  echo "PROMPT"
+  echo "------------------------------------"
+  cat .ai/prompts/fix.md
+
+  echo
+  echo "ERROR"
+  echo "------------------------------------"
+  echo "$ERROR"
 )"
