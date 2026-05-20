@@ -10,7 +10,7 @@ evidence:
   - { type: doc, ref: .ai/integrations.md }
   - { type: doc, ref: README.md }
   - { type: code, ref: go.mod }
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 

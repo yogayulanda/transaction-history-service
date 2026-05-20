@@ -10,7 +10,7 @@ evidence:
   - { type: doc, ref: .ai/architecture.md }
   - { type: doc, ref: .ai/conventions.md }
   - { type: doc, ref: .ai/modules.md }
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 

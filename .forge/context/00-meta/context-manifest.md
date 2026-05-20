@@ -7,7 +7,7 @@ confidence: high
 source: human
 evidence:
   - { type: doc, ref: ../../../.forge/forge.config.yaml }
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 

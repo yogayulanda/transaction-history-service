@@ -5,7 +5,7 @@ type: layer
 status: unknown
 confidence: high
 source: human
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 

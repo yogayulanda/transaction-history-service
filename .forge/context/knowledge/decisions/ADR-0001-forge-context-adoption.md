@@ -7,7 +7,7 @@ source: human
 evidence:
   - { type: external, ref: forge-context-engine repo }
   - { type: doc, ref: .forge/forge.config.yaml }
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 

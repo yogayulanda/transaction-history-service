@@ -9,7 +9,7 @@ evidence:
   - { type: doc, ref: README.md }
   - { type: doc, ref: .ai/context.md }
   - { type: code, ref: proto/history/v1/history.proto }
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 

@@ -10,7 +10,7 @@ evidence:
   - { type: code, ref: internal/service/transaction_service_test.go }
   - { type: code, ref: internal/repository/transaction_sql_test.go }
   - { type: code, ref: go.mod }
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 

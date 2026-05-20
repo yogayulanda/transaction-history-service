@@ -43,7 +43,7 @@ confidence: high|medium|low
 source: human|ai|hybrid
 evidence:
   - { type: code|doc|adr|human|external, ref: <path|url> }
-owner: <team>
+owner: <team-or-ref>
 updated: YYYY-MM-DD
 review_by: YYYY-MM-DD  # optional
 ---
@@ -71,6 +71,9 @@ review_by: YYYY-MM-DD  # optional
 4. New inferences go to `knowledge/inferred.md` or `generated/`, never to `source: human` files.
 5. Without `evidence`, max status is `assumption`.
 6. AI does not fabricate architecture, APIs, services, databases, integrations, ownership, or business rules.
+7. Treat legacy AI artifacts (`.ai/`, `.claude/`, `AGENTS.md`, etc.) as **reference**, not source-of-truth. Repo code wins on conflict.
+8. Tag every `unknowns.md` entry with priority: `blocking` · `important` · `informational`.
+9. Use `owner: unresolved` (not `TBD`) when owner is undetermined; create one root unknown `U-OWN`.
 
 ## Status Promotion
 
@@ -84,8 +87,8 @@ Promotion to `confirmed` requires entry in `knowledge/confirmations.md`.
 
 | Zone | Lifecycle |
 |---|---|
-| `temp/*` | Single session → deleted |
-| `generated/*` | Until regenerated → overwritten |
+| `temp/*` | Single session → deleted (gitignored, never authoritative) |
+| `generated/*` | Until regenerated → overwritten. Commit only if stable & useful. Never source-of-truth. Must remain reproducible. |
 | `inferred`/`assumption`/`unknown` | Until resolved |
 | `core`/`layer`/`system` | Maintained → `deprecated` |
 | ADR | Permanent → `superseded`, never deleted |
@@ -99,3 +102,47 @@ Promotion to `confirmed` requires entry in `knowledge/confirmations.md`.
 - Shared context referenced via `id`, **never copied**.
 - `systems/*` does not copy `01-core/` or `layers/*` standards.
 - `modes/*` does not list `00-meta/*` or `01-core/*`.
+
+## Ownership Rule
+
+Avoid noise from repeated `owner: TBD` placeholders.
+
+| Situation | Action |
+|---|---|
+| Owner known | Set on every file as canonical team/individual reference |
+| Owner unknown | Use `owner: unresolved` and create **one** unknown entry (`U-OWN`) in `knowledge/unknowns.md` |
+| Multiple ownership | Use a short ref token (e.g. `team.payments`) and define it once in `glossary.md` |
+
+`owner: TBD` is deprecated. Use `unresolved` (single root unknown) or a real ref.
+
+## Layer Activation Rule
+
+A layer is **activated** only when concrete evidence exists in the target repo.
+
+| Layer | Evidence Required |
+|---|---|
+| `backend` | Application code (server, API, business logic) |
+| `frontend` | UI/web client code |
+| `mobile` | iOS/Android/cross-platform code |
+| `infrastructure` | IaC (Terraform/Helm/K8s), Dockerfiles for deployment, CI/CD deploy logic |
+| `testing` | Test files or test runner configuration |
+
+If evidence is **weak or partial**: activate with `confidence: medium/low` + add unknown entries.
+If evidence is **absent**: remove the layer folder and from `forge.config.yaml` → `layers_enabled`.
+
+## README vs Layer Content Policy
+
+| File | Role | Content |
+|---|---|---|
+| `layers/<x>/README.md` | Entrypoint & TOC | Purpose, navigation links, activation rule. Stays lightweight. |
+| `layers/<x>/<x>.md` | Engineering knowledge | Conventions, patterns, tech stack, layer-specific rules. |
+
+README must NOT duplicate `<x>.md` content.
+
+## Unknown Priority Classification
+
+| Priority | Meaning |
+|---|---|
+| `blocking` | Init or work cannot proceed without resolution |
+| `important` | Should be resolved within current sprint/cycle |
+| `informational` | Nice to know; resolve when convenient |

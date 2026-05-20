@@ -11,7 +11,7 @@ evidence:
   - { type: doc, ref: .ai/architecture.md }
   - { type: doc, ref: .ai/context.md }
   - { type: doc, ref: .ai/decisions.md }
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 

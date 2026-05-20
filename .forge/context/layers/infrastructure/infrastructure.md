@@ -11,7 +11,7 @@ evidence:
   - { type: code, ref: .env.example }
   - { type: doc, ref: README.md }
   - { type: doc, ref: .ai/integrations.md }
-owner: TBD
+owner: unresolved
 updated: 2026-05-20
 ---
 
