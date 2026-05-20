@@ -74,28 +74,26 @@ Index and routing map for the entire context system. Not a knowledge source.
 Format: `path | id | type | status | owner`
 
 ```
-.forge/forge.config.yaml                                                | (config)                              | config     | n/a       | TBD
-.forge/context/00-meta/context-manifest.md                              | meta.context-manifest                 | meta       | confirmed | TBD
+.forge/forge.config.yaml                                                | (config)                              | config     | n/a       | unresolved
+.forge/context/00-meta/context-manifest.md                              | meta.context-manifest                 | meta       | confirmed | unresolved
 .forge/context/00-meta/conventions.md                                   | meta.conventions                      | meta       | confirmed | forge-context-engine
-.forge/context/00-meta/glossary.md                                      | meta.glossary                         | meta       | inferred  | TBD
-.forge/context/01-core/product.md                                       | core.product                          | core       | inferred  | TBD
-.forge/context/01-core/architecture.md                                  | core.architecture                     | core       | inferred  | TBD
-.forge/context/01-core/principles.md                                    | core.principles                       | core       | inferred  | TBD
-.forge/context/01-core/constraints.md                                   | core.constraints                      | core       | inferred  | TBD
-.forge/context/layers/backend/README.md                                 | layer.backend                         | layer      | unknown   | TBD
-.forge/context/layers/backend/backend.md                                | layer.backend.content                 | layer      | inferred  | TBD
-.forge/context/layers/infrastructure/README.md                          | layer.infrastructure                  | layer      | unknown   | TBD
-.forge/context/layers/infrastructure/infrastructure.md                  | layer.infrastructure.content          | layer      | inferred  | TBD
-.forge/context/layers/testing/README.md                                 | layer.testing                         | layer      | unknown   | TBD
-.forge/context/layers/testing/testing.md                                | layer.testing.content                 | layer      | inferred  | TBD
-.forge/context/systems/README.md                                        | systems.readme                        | meta       | unknown   | TBD
-.forge/context/systems/transaction-history-service/system.md            | system.transaction-history-service    | system     | inferred  | TBD
+.forge/context/00-meta/glossary.md                                      | meta.glossary                         | meta       | inferred  | unresolved
+.forge/context/01-core/product.md                                       | core.product                          | core       | inferred  | unresolved
+.forge/context/01-core/architecture.md                                  | core.architecture                     | core       | inferred  | unresolved
+.forge/context/01-core/principles.md                                    | core.principles                       | core       | inferred  | unresolved
+.forge/context/01-core/constraints.md                                   | core.constraints                      | core       | inferred  | unresolved
+.forge/context/layers/backend/README.md                                 | layer.backend                         | layer      | unknown   | unresolved
+.forge/context/layers/backend/backend.md                                | layer.backend.content                 | layer      | inferred  | unresolved
+.forge/context/layers/testing/README.md                                 | layer.testing                         | layer      | unknown   | unresolved
+.forge/context/layers/testing/testing.md                                | layer.testing.content                 | layer      | inferred  | unresolved
+.forge/context/systems/README.md                                        | systems.readme                        | meta       | unknown   | unresolved
+.forge/context/systems/transaction-history-service/system.md            | system.transaction-history-service    | system     | inferred  | unresolved
 .forge/context/knowledge/decisions/ADR-0000-template.md                 | knowledge.decision.adr-0000-template  | knowledge  | confirmed | forge-context-engine
-.forge/context/knowledge/decisions/ADR-0001-forge-context-adoption.md   | knowledge.decision.adr-0001           | knowledge  | accepted  | TBD
-.forge/context/knowledge/assumptions.md                                 | knowledge.assumptions                 | knowledge  | confirmed | TBD
-.forge/context/knowledge/unknowns.md                                    | knowledge.unknowns                    | knowledge  | confirmed | TBD
-.forge/context/knowledge/inferred.md                                    | knowledge.inferred                    | knowledge  | confirmed | TBD
-.forge/context/knowledge/confirmations.md                               | knowledge.confirmations               | knowledge  | confirmed | TBD
+.forge/context/knowledge/decisions/ADR-0001-forge-context-adoption.md   | knowledge.decision.adr-0001           | knowledge  | accepted  | unresolved
+.forge/context/knowledge/assumptions.md                                 | knowledge.assumptions                 | knowledge  | confirmed | unresolved
+.forge/context/knowledge/unknowns.md                                    | knowledge.unknowns                    | knowledge  | confirmed | unresolved
+.forge/context/knowledge/inferred.md                                    | knowledge.inferred                    | knowledge  | confirmed | unresolved
+.forge/context/knowledge/confirmations.md                               | knowledge.confirmations               | knowledge  | confirmed | unresolved
 .forge/context/modes/planning.md                                        | mode.planning                         | mode       | confirmed | forge-context-engine
 .forge/context/modes/implementation.md                                  | mode.implementation                   | mode       | confirmed | forge-context-engine
 .forge/context/modes/review.md                                          | mode.review                           | mode       | confirmed | forge-context-engine
@@ -105,6 +103,6 @@ Format: `path | id | type | status | owner`
 ## Active Configuration Snapshot
 
 - Tier: `standard`
-- Layers enabled: `backend`, `infrastructure`, `testing`
+- Layers enabled: `backend`, `testing` *(infrastructure deactivated per v0.2.1 Layer Activation Rule — no IaC/deploy evidence)*
 - Systems registered: `transaction-history-service` (type: `service`)
 - Default mode: `implementation`

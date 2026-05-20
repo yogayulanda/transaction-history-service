@@ -74,6 +74,15 @@ review_by: YYYY-MM-DD  # optional
 7. Treat legacy AI artifacts (`.ai/`, `.claude/`, `AGENTS.md`, etc.) as **reference**, not source-of-truth. Repo code wins on conflict.
 8. Tag every `unknowns.md` entry with priority: `blocking` · `important` · `informational`.
 9. Use `owner: unresolved` (not `TBD`) when owner is undetermined; create one root unknown `U-OWN`.
+10. **Evidence Consistency** — before finalizing context, cross-check critical claims against repo evidence (tables, migrations, entities, repositories, APIs/handlers, workers, integrations, validation rules). If repo shows N, context says N.
+11. **Drift Detection** — when repo evidence changes after context was written, mark affected entries as stale, refresh from current code, log unresolved ambiguity in `unknowns.md`.
+12. **No Phantom ADRs** — never list `ADR-NNNN` in `architecture.md` (or anywhere as cited evidence) unless the file actually exists. Planned ADRs go to `assumptions.md` or `unknowns.md`.
+13. **Implicit Constraint Extraction** — during init, scan code for implicit constraints (enum values, validation rules, required fields, ID semantics, currency/amount rules, status fields, retry/idempotency). Global rules → `constraints.md`. System-specific → `systems/<name>/system.md`. Ambiguous → `unknowns.md`. Weak inference → `inferred.md`.
+14. **Validation Semantics** — preserve enforcement layer (service / handler / DB / repository fallback / business intent). Never flatten everything into "required fields". A field DB-constrained but not service-required must be documented as DB-constrained, not service-required.
+15. **Internal Table Hygiene** — markdown table cells follow the same conventions as front-matter. Owner cells use `unresolved`, never `TBD`. Status/priority cells use the canonical vocabulary.
+16. **Language consistency** — one dominant natural language per repo (chosen at init, override documented). Never translate identifiers (table names, enum values, RPC names, etc.). No mixed-language sentences in narrative content.
+17. **Reference stability** — prefer `id`/file references over translated heading text. Citing `core.product` is stable; citing `"Data Sources" section` is fragile.
+18. **Runtime vs Seed Semantics** — never describe migration-seeded, bootstrap-only, lookup, or static configuration tables as part of runtime operational write flows unless runtime code actually writes to them. Classify each table by role: `operational-write`, `transactional-write`, `read-only-runtime`, `migration-seeded`, `lookup/reference`, `generated/internal`, or `unknown`.
 
 ## Status Promotion
 
@@ -146,3 +155,60 @@ README must NOT duplicate `<x>.md` content.
 | `blocking` | Init or work cannot proceed without resolution |
 | `important` | Should be resolved within current sprint/cycle |
 | `informational` | Nice to know; resolve when convenient |
+
+## Local Override — Dominant Context Language
+
+**Decision:** English (recorded 2026-05-20).
+
+**Rationale:** The repo's narrative artifacts are mixed (README in Indonesian, code comments in English, error user-messages in Indonesian, AI workflow docs in English). The team chose **English** for `.forge/context/` narrative as the canonical engineering-AI working language.
+
+**Deviation from default rule:** v0.2.1 Language Consistency Rule prefers repo-native language (Indonesian) when one dominates. This repo overrides that preference based on team convention.
+
+### Local Application
+
+Applies across:
+`01-core/` · `layers/` · `systems/` · `knowledge/` · `00-meta/glossary.md` (header notes & narrative)
+
+### Identifier Rule (Unchanged)
+
+All technical identifiers stay verbatim regardless of narrative language:
+- Table names, column names, enum values, RPC names
+- Error codes (`TRH-VAL-001`, etc.)
+- Migration filenames
+- Repo-native business terms when no equivalent exists (e.g. `bifast`, `rtol`)
+- Indonesian error user-messages stored in `transaction_error_definitions` are data, not narrative — they stay verbatim.
+
+### Tracked As
+
+`knowledge/confirmations.md` records this decision; `knowledge/unknowns.md` U-013 is closed by this override.
+
+## Validation Semantics Rule
+
+Validation lives in multiple layers. Context must preserve where each rule is enforced.
+
+| Layer | Source in this repo |
+|---|---|
+| Service | `internal/service/transaction_service.go` → `sanitizeCreateInput` empty-checks |
+| Handler / API | `internal/handler/grpc/handler.go` validators |
+| Database | `migrations/transaction/*.sql` `CHECK`, `NOT NULL`, `UNIQUE`, FK |
+| Repository | `internal/repository/transaction_sql.go` defaults/fallbacks |
+| Business intent | ADRs, `01-core/product.md` |
+
+Never flatten different validation realities into one "required" list. A field DB-constrained but not service-required must be documented as DB-constrained, not service-required.
+
+## Runtime vs Seed Semantics Rule
+
+Table role classification for this repo (see `knowledge/inferred.md` I-017):
+
+| Table | Role |
+|---|---|
+| `transaction_histories` | `operational-write` · `transactional-write` |
+| `transaction_history_details` | `operational-write` · `transactional-write` |
+| `transaction_history_status_events` | `operational-write` · `transactional-write` |
+| `transaction_error_definitions` | `migration-seeded` · `lookup/reference` |
+
+Create-flow transaction boundary: first 3 tables only. `transaction_error_definitions` is seeded by migration and read at runtime — not written by runtime code.
+
+## Glossary Signal Rule
+
+If all glossary entries share the same `status`/`source`, declare once as a header note and omit from rows. See `00-meta/glossary.md` for applied example.

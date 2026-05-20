@@ -1,13 +1,14 @@
 # forge-context-engine — Engine Configuration for transaction-history-service
 # Single-service Go backend. Initialized 2026-05-20.
 
-forge_version: "0.5"
+forge_version: "0.2.1"   # synced with forge-context-engine v0.2.1
 tier: standard
 
-# Repo ini backend-only (Go gRPC service). Frontend & mobile dihapus.
+# Repo ini backend-only (Go gRPC service). Frontend, mobile, infrastructure dihapus.
+# Infrastructure tidak diaktifkan — repo hanya punya migrations + build tooling + env config.
+# Per v0.2.1 Layer Activation Rule, evidence untuk infrastructure butuh IaC / deploy logic / orchestration.
 layers_enabled:
   - backend
-  - infrastructure
   - testing
 
 systems:

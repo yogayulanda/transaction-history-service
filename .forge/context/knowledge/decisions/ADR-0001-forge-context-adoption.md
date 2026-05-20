@@ -15,7 +15,7 @@ updated: 2026-05-20
 
 - **Status:** accepted
 - **Date:** 2026-05-20
-- **Decision makers:** Repo owner (TBD)
+- **Decision makers:** Repo owner (unresolved — see `knowledge/unknowns.md` U-OWN)
 
 ## Context
 
@@ -28,7 +28,7 @@ The repo previously used a flat `.ai/` folder with markdown files for AI context
 
 ## Decision
 
-Adopt `forge-context-engine` v0.5 (Standard tier) as the canonical AI context system for this repo. Place the runtime under `.forge/context/`. Keep existing `.ai/` folder as legacy until migration is complete (see ADR-0002 once written).
+Adopt `forge-context-engine` v0.5 (Standard tier) as the canonical AI context system for this repo. Place the runtime under `.forge/context/`. Keep existing `.ai/` folder as legacy until migration is complete (a future ADR will record the legacy migration plan; tracked as `knowledge/unknowns.md` U-005).
 
 ## Alternatives Considered
 

@@ -33,7 +33,7 @@ Acknowledged knowledge gaps. Mandatory destination when AI encounters incomplete
 | ID | Question / Gap | Priority | Owner | Created | Status | Resolution |
 |---|---|---|---|---|---|---|
 | U-OWN | Who is the owner team for this service? All files currently use `owner: unresolved`. | blocking | unresolved | 2026-05-20 | unknown | — |
-| U-002 | Does this repo own deployment manifests / CI pipelines / IaC, or are those in another repo? | important | unresolved | 2026-05-20 | unknown | — |
+| U-002 | Where do deployment manifests / CI pipelines / IaC live? Confirmed not in this repo (I-016) — but exact owning repo is unknown. | important | unresolved | 2026-05-20 | partial | Pending: name of deployment repo |
 | U-003 | What is the integration test strategy? Only unit tests with sqlmock observed. Any e2e or integration tests against real SQL Server? | important | unresolved | 2026-05-20 | unknown | — |
 | U-004 | Is `gen/` policy "always commit generated proto" official, or convention? Should be ADR'd. | informational | unresolved | 2026-05-20 | unknown | — |
 | U-005 | What is the staleness/migration plan for legacy `.ai/` folder vs new `.forge/context/`? | informational | unresolved | 2026-05-20 | unknown | — |
@@ -43,3 +43,6 @@ Acknowledged knowledge gaps. Mandatory destination when AI encounters incomplete
 | U-009 | Status lifecycle outside create flow — what is the intended design? README mentions it as "not yet complete." | important | unresolved | 2026-05-20 | unknown | — |
 | U-010 | Kafka publisher: when is it enabled, what topics are published, what consumers expect what schema? | important | unresolved | 2026-05-20 | unknown | — |
 | U-011 | Redis cache: what is cached, what TTL, what invalidation strategy? | informational | unresolved | 2026-05-20 | unknown | — |
+| U-012 | Are the 4 pre-defined error codes (`TRH-VAL-001/002`, `TRH-DB-001`, `TRH-REC-001`) the complete catalog, or is the table expected to grow? | informational | unresolved | 2026-05-20 | unknown | — |
+| U-013 | Dominant context language for `.forge/context/` narratives — repo README is Indonesian; current `.forge` content is English. Decide and apply consistently per v0.2.1 Language Consistency Rule. | important | unresolved | 2026-05-20 | resolved | 2026-05-20 — Team convention override: English chosen for `.forge/context/` narrative. See `00-meta/conventions.md` → Local Override. Logged in `confirmations.md`. |
+| U-014 | Is `direction` intentionally optional at service validation layer, or should it be required by business rule? Currently: trimmed but not empty-checked in `sanitizeCreateInput`; DB-constrained to `debit`/`credit`. | important | unresolved | 2026-05-20 | unknown | — |

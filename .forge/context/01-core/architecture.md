@@ -11,6 +11,8 @@ evidence:
   - { type: doc, ref: .ai/architecture.md }
   - { type: doc, ref: .ai/context.md }
   - { type: doc, ref: .ai/decisions.md }
+  - { type: code, ref: migrations/transaction/0001_init_transaction_history.up.sql }
+  - { type: code, ref: migrations/transaction/0003_error_definitions.up.sql }
 owner: unresolved
 updated: 2026-05-20
 ---
@@ -48,22 +50,31 @@ Clean architecture with strict 3-layer separation: `handler → service → repo
 ## High-Level Data Flow
 
 ```
-Producer (trxFinance, ms-liquiditas, agent-payment-purchase)
+Producer (see core.product → producers)
    │
    ▼ gRPC / HTTP gateway
 handler/grpc ─► service ─► repository ─► SQL Server
                                           │
                                           ▼
-                                    transaction_histories
-                                    transaction_history_details
-                                    transaction_history_status_events
+                              [create-flow transaction]
+                              transaction_histories
+                              transaction_history_details
+                              transaction_history_status_events
+                              ─────────────────────────────────
+                              [migration-seeded, read-only runtime]
+                              transaction_error_definitions
 ```
 
 ## Data Ownership
 
-- `dbo.transaction_histories` (main)
-- `dbo.transaction_history_details`
-- `dbo.transaction_history_status_events`
+| Table | Runtime Role | Migration |
+|---|---|---|
+| `dbo.transaction_histories` | `operational-write` · `transactional-write` | `0001_init_transaction_history.up.sql` |
+| `dbo.transaction_history_details` | `operational-write` · `transactional-write` | `0001_init_transaction_history.up.sql` |
+| `dbo.transaction_history_status_events` | `operational-write` · `transactional-write` | `0001_init_transaction_history.up.sql` |
+| `dbo.transaction_error_definitions` | `migration-seeded` · `lookup/reference` | `0003_error_definitions.up.sql` |
+
+Create-flow transaction boundary: first 3 tables only. `transaction_error_definitions` is seeded by migration and read at runtime for error resolution — not written by runtime code.
 
 ## External Integrations
 
@@ -74,14 +85,10 @@ handler/grpc ─► service ─► repository ─► SQL Server
 | Redis | Cache | Optional |
 | Kafka | Publisher | Optional (when enabled) |
 
-## Major Architectural Decisions
+## Architectural Decisions
 
-Tracked in `knowledge/decisions/`:
+| ADR | Status | Topic |
+|---|---|---|
+| `ADR-0001` | accepted | forge-context-engine adoption |
 
-- ADR-0001: forge-context-engine adoption
-- ADR-0002 (planned): framework-first runtime via go-core (sourced from `.ai/decisions.md`)
-- ADR-0003 (planned): SQL Server as source of truth
-- ADR-0004 (planned): transactional ingestion (3-table single transaction)
-- ADR-0005 (planned): gRPC-first contract; HTTP is gateway projection
-- ADR-0006 (planned): app error contract integration via go-core
-- ADR-0007 (planned): `CreateTransactionHistory` retained as fallback/manual ingestion path
+> Additional architectural decisions discovered during init (framework-first runtime, SQL Server as source of truth, transactional ingestion, gRPC-first contract, app-error contract via go-core, fallback ingestion) are sourced from `.ai/decisions.md` but have NOT been formalized as ADR files. They are tracked as candidate ADRs in `knowledge/assumptions.md` (priority `important`) and will become ADRs only when written.
