@@ -6,28 +6,35 @@ status: confirmed
 confidence: high
 source: human
 owner: forge-context-engine
-updated: 2026-05-20
+updated: 2026-05-24
 ---
 
 # Mode: Planning
 
-Prepare context for planning work: map intent, gaps, and assumptions before implementation.
-
-## include *(delta above always-loaded core)*
+## include
 
 - `knowledge/decisions/`
-- `knowledge/assumptions.md`
-- `knowledge/unknowns.md`
-- `layers/*` summaries (README placeholders or relevant summaries)
+- `knowledge/assumptions.md`, `knowledge/unknowns.md`
+- `layers/<related>`
 
 ## on_demand
 
-- `systems/<unit>` — when planning touches a specific unit
+- `systems/<related>`, `knowledge/inferred.md`
+- Contracts/events/data: API, proto, route, topic, producer/consumer, migration, constraint, table-role context
+- UI/ops/runtime: route, page, component, state, API-consumption, accessibility, deployment, environment, logging/metrics/tracing context
 
 ## exclude
 
-- `knowledge/inferred.md` *(unless explicitly needed)*
+- `systems/<unrelated>`
+- `layers/<unrelated>`
 
 ## token_budget
 
-medium
+4000
+
+## notes
+
+- Output an Engineering Change Plan (ECP): evidence-based, layer-adaptive engineering planning covering proposed change, architecture/runtime impact, dependency/contract impact, implementation strategy, risks, unknowns, validation, and rollback.
+- ECP is not brainstorming, PRD/business prose, implementation code, or architecture rewrite by default.
+- Adapt sections to evidence: backend transactions/data/contracts; frontend UX/routes/components/state/accessibility/performance/analytics; infrastructure deployment/environment/reliability/security.
+- Separate evidence, inference, and unknowns; do not invent topology, ownership, contracts, deployability, or runtime relationships from imports alone; load extra context only for the scoped change.
