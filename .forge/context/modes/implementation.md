@@ -6,28 +6,29 @@ status: confirmed
 confidence: high
 source: human
 owner: forge-context-engine
-updated: 2026-05-20
+updated: 2026-05-24
 ---
 
 # Mode: Implementation
-
-Prepare context for implementation work: active layers, related systems, ADRs, relevant inferences.
-
-## include *(delta above always-loaded core)*
-
-- `layers/<active>` — layers relevant to the task
-- `systems/<related>` — units touched by the task
+## include
+- `layers/<related>`
+- `systems/<related>`
 - `knowledge/decisions/`
 - `knowledge/inferred.md`
-
 ## on_demand
-
-- `generated/*` — if code maps or summaries are available
-
+- `knowledge/assumptions.md`
+- `generated/<relevant>`
 ## exclude
-
-- `systems/<unrelated>` — all units outside task scope
-
+- `systems/<unrelated>`
+- `layers/<unrelated>`
 ## token_budget
-
-medium-high
+8000
+## notes
+- Convert an approved ECP, approved phases, or simple request into a human-reviewable engineering task breakdown.
+- Break work into explicit executable tasks with likely files/components, dependency ordering, migration/runtime sequencing when relevant, validation notes, and rollback visibility.
+- Do not modify code, redesign architecture, repeat full ECP reasoning, or silently redefine approved plans.
+- Load only task-relevant layers, systems, decisions, and inferences; use on-demand context only when task decomposition requires it.
+- Keep task scope bounded; do not introduce speculative redesign, ownership, topology, contracts, or behavior not supported by evidence.
+- Continue on labeled proposed defaults only when low-risk, reversible, and non-authoritative; do not promote them into confirmed architecture/runtime behavior.
+- Never copy raw secrets from configs, env files, logs, fixtures, docs, or generated output into code or Forge context.
+- Report task list, likely files/components, dependencies, loaded context, missing evidence or ambiguity, proposed vs confirmed boundaries, and whether implementation mode was sufficient.

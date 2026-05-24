@@ -8,7 +8,7 @@ source: human
 evidence:
   - { type: doc, ref: ../../../.forge/forge.config.yaml }
 owner: unresolved
-updated: 2026-05-20
+updated: 2026-05-24
 ---
 
 # Context Manifest
@@ -50,9 +50,9 @@ Index and routing map for the entire context system. Not a knowledge source.
 |---|---|
 | `layers/<layer>` | Mode referencing that layer |
 | `systems/<unit>` | Mode + task intent on that unit |
-| `knowledge/decisions/` | `implementation`, `review` |
-| `knowledge/assumptions.md`, `unknowns.md` | `planning`, `testing` |
-| `knowledge/inferred.md` | `implementation` |
+| `knowledge/decisions/` | `implementation`, `execute`, `testing`, `review` |
+| `knowledge/assumptions.md`, `unknowns.md` | `planning`, `testing`, on-demand in `implementation`/`execute` |
+| `knowledge/inferred.md` | `implementation`, `execute`, `testing` |
 | `generated/*` | On-demand |
 
 ## Never Auto-Loaded
@@ -96,8 +96,9 @@ Format: `path | id | type | status | owner`
 .forge/context/knowledge/confirmations.md                               | knowledge.confirmations               | knowledge  | confirmed | unresolved
 .forge/context/modes/planning.md                                        | mode.planning                         | mode       | confirmed | forge-context-engine
 .forge/context/modes/implementation.md                                  | mode.implementation                   | mode       | confirmed | forge-context-engine
-.forge/context/modes/review.md                                          | mode.review                           | mode       | confirmed | forge-context-engine
+.forge/context/modes/execute.md                                         | mode.execute                          | mode       | confirmed | forge-context-engine
 .forge/context/modes/testing.md                                         | mode.testing                          | mode       | confirmed | forge-context-engine
+.forge/context/modes/review.md                                          | mode.review                           | mode       | confirmed | forge-context-engine
 ```
 
 ## Active Configuration Snapshot
