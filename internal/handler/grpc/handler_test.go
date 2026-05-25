@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"testing"
+	"time"
 
 	coreerrors "github.com/yogayulanda/go-core/errors"
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
@@ -122,6 +123,65 @@ func TestGetUserHistory_RejectsInvalidDateRange(t *testing.T) {
 	}
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected invalid argument, got %v", status.Code(err))
+	}
+}
+
+func TestGetUserHistory_UsesStatusCodeFilterWhenProvided(t *testing.T) {
+	var gotFilter domain.ListUserHistoryFilter
+	handler := &Handler{
+		service: service.NewTransactionService(stubRepository{
+			listFn: func(_ context.Context, filter domain.ListUserHistoryFilter) ([]domain.TransactionHistory, bool, error) {
+				gotFilter = filter
+				return []domain.TransactionHistory{
+					{
+						ID:              "tx-1",
+						UserID:          "user-1",
+						ReferenceID:     "ref-1",
+						StatusCode:      "SUCCESS",
+						SourceService:   "trxFinance",
+						Currency:        "IDR",
+						TransactionTime: time.Date(2026, 4, 9, 1, 2, 3, 0, time.UTC),
+					},
+				}, false, nil
+			},
+		}, nil, nil, nil, nil),
+	}
+
+	resp, err := handler.GetUserHistory(context.Background(), &historyv1.GetUserHistoryRequest{
+		UserId:     "user-1",
+		StatusCode: historyv1.TransactionStatusCode_TRANSACTION_STATUS_CODE_SUCCESS,
+		PageSize:   20,
+	})
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if gotFilter.StatusCode != "SUCCESS" {
+		t.Fatalf("expected status filter SUCCESS, got %+v", gotFilter)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].StatusCode != historyv1.TransactionStatusCode_TRANSACTION_STATUS_CODE_SUCCESS {
+		t.Fatalf("unexpected response items: %+v", resp.Items)
+	}
+}
+
+func TestGetUserHistory_LeavesStatusFilterEmptyWhenUnspecified(t *testing.T) {
+	var gotFilter domain.ListUserHistoryFilter
+	handler := &Handler{
+		service: service.NewTransactionService(stubRepository{
+			listFn: func(_ context.Context, filter domain.ListUserHistoryFilter) ([]domain.TransactionHistory, bool, error) {
+				gotFilter = filter
+				return nil, false, nil
+			},
+		}, nil, nil, nil, nil),
+	}
+
+	_, err := handler.GetUserHistory(context.Background(), &historyv1.GetUserHistoryRequest{
+		UserId: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if gotFilter.StatusCode != "" {
+		t.Fatalf("expected empty status filter for UNSPECIFIED, got %+v", gotFilter)
 	}
 }
 

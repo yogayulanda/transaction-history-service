@@ -136,6 +136,9 @@ HTTP gateway dari `go-core` juga tersedia:
 - `CreateTransactionHistory` dipertahankan sebagai fallback/manual ingestion path dan jalur testing insert.
 - `GetUserHistory` menggunakan cursor offset placeholder (`nextCursor` berupa string angka offset).
 - Saat `startDate` dan `endDate` diisi, handler memvalidasi `startDate <= endDate`.
+- `GetUserHistory` mendukung filter status transaksi melalui field gRPC `status_code` dan query HTTP `statusCode`.
+- Nilai status yang valid: `CREATED`, `PENDING`, `PROCESSING`, `SUCCESS`, `FAILED`, `REVERSED`, `EXPIRED`.
+- `status_code` adalah nama field kontrak gRPC untuk transaction status filter; nilai `UNSPECIFIED` berarti tanpa filter status.
 - Validasi field wajib business untuk create terjadi di service layer (termasuk `channel`, `sourceService`, `currency`, `statusCode`, dll).
 
 ## Error, Auth, dan Security

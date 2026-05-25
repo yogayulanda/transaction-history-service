@@ -116,6 +116,9 @@ func (h *Handler) GetUserHistory(
 		offset = parsed
 	}
 
+	// `status_code` is the canonical gRPC field for transaction status filtering.
+	// In the HTTP gateway this is exposed as the `statusCode` query parameter.
+	// UNSPECIFIED intentionally means "do not filter by status".
 	statusCode := fromStatusCode(req.StatusCode)
 	if req.StatusCode != historyv1.TransactionStatusCode_TRANSACTION_STATUS_CODE_UNSPECIFIED && statusCode == "" {
 		return nil, coreerrors.ToGRPC(coreerrors.Validation("invalid request", coreerrors.Detail{Field: "status_code", Reason: "invalid"}))

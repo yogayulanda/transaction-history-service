@@ -127,6 +127,45 @@ func TestListByUser_ReturnsHasMoreAndMapsChannel(t *testing.T) {
 	}
 }
 
+func TestListByUser_AppliesStatusCodeFilter(t *testing.T) {
+	repo, mock, cleanup := newMockRepository(t)
+	defer cleanup()
+
+	now := time.Date(2026, 4, 9, 1, 2, 3, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"id", "user_id", "reference_id", "external_ref_id", "product_group", "product_type",
+		"transaction_route", "channel", "direction", "amount", "fee", "total_amount",
+		"currency", "status_code", "error_code", "error_message", "source_service",
+		"transaction_time", "created_at", "updated_at",
+	}).AddRow(
+		"tx-1", "user-1", "ref-1", sql.NullString{}, "transfer", "transfer_internal", "internal",
+		"app-one", "debit", 100, 0, 100, "IDR", "SUCCESS", "", "", "trxFinance", now, now, now,
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "dbo"."transaction_histories" WHERE user_id = @p1 AND status_code = @p2 ORDER BY transaction_time DESC, id DESC OFFSET 0 ROW FETCH NEXT 2 ROWS ONLY`)).
+		WithArgs("user-1", "SUCCESS").
+		WillReturnRows(rows)
+
+	items, hasMore, err := repo.ListByUser(context.Background(), domain.ListUserHistoryFilter{
+		UserID:     "user-1",
+		StatusCode: "SUCCESS",
+		PageSize:   1,
+		Offset:     0,
+	})
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if hasMore {
+		t.Fatal("expected hasMore=false")
+	}
+	if len(items) != 1 || items[0].StatusCode != "SUCCESS" {
+		t.Fatalf("unexpected items: %+v", items)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
 func TestListActiveErrorDefinitions_ReturnsOnlyActiveRows(t *testing.T) {
 	repo, mock, cleanup := newMockRepository(t)
 	defer cleanup()
