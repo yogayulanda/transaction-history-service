@@ -33,6 +33,10 @@ func (s stubRepository) FindDetailByID(ctx context.Context, id string) (*domain.
 	return nil, nil
 }
 
+func (s stubRepository) FindByReferenceID(context.Context, string) (*domain.TransactionHistoryDetail, error) {
+	return nil, domain.ErrTransactionNotFound
+}
+
 func (s stubRepository) ListByUser(ctx context.Context, filter domain.ListUserHistoryFilter) ([]domain.TransactionHistory, bool, error) {
 	if s.listFn != nil {
 		return s.listFn(ctx, filter)

@@ -102,7 +102,12 @@ func main() {
 		cfg.HTTP.TLSEnabled,
 	)
 
-	if err := coreserver.Run(ctx, core, grpcServer, gatewayServer); err != nil {
+	components := []coreserver.Startable{grpcServer, gatewayServer}
+	if svcApp.KafkaInbound != nil {
+		components = append(components, svcApp.KafkaInbound)
+	}
+
+	if err := coreserver.Run(ctx, core, components...); err != nil {
 		core.Logger().Error(ctx, "server stopped with error", logger.Field{Key: "error", Value: err.Error()})
 		os.Exit(1)
 	}

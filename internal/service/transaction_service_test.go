@@ -12,6 +12,7 @@ import (
 
 type fakeRepository struct {
 	createFn func(ctx context.Context, in domain.CreateTransactionHistoryInput) (string, error)
+	findByReferenceIDFn func(ctx context.Context, referenceID string) (*domain.TransactionHistoryDetail, error)
 }
 
 type testResolver struct {
@@ -37,6 +38,13 @@ func (f fakeRepository) Create(ctx context.Context, in domain.CreateTransactionH
 
 func (f fakeRepository) FindDetailByID(context.Context, string) (*domain.TransactionHistoryDetail, error) {
 	return nil, nil
+}
+
+func (f fakeRepository) FindByReferenceID(ctx context.Context, referenceID string) (*domain.TransactionHistoryDetail, error) {
+	if f.findByReferenceIDFn != nil {
+		return f.findByReferenceIDFn(ctx, referenceID)
+	}
+	return nil, domain.ErrTransactionNotFound
 }
 
 func (f fakeRepository) ListByUser(context.Context, domain.ListUserHistoryFilter) ([]domain.TransactionHistory, bool, error) {

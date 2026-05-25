@@ -189,6 +189,41 @@ func (r *transactionRepository) dbFromContext(ctx context.Context) (*gorm.DB, er
 	return txDB, nil
 }
 
+func (r *transactionRepository) FindByReferenceID(
+	ctx context.Context,
+	referenceID string,
+) (*domain.TransactionHistoryDetail, error) {
+	startedAt := time.Now()
+
+	var h transactionHistoryModel
+	if err := r.db.WithContext(ctx).First(&h, "reference_id = ?", referenceID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			r.emitDBLog(ctx, "find_by_reference_id", startedAt, "success", "")
+			return nil, domain.ErrTransactionNotFound
+		}
+		r.emitDBLog(ctx, "find_by_reference_id", startedAt, "failed", "query_failed")
+		return nil, err
+	}
+
+	var d transactionHistoryDetailModel
+	if err := r.db.WithContext(ctx).First(&d, "transaction_id = ?", h.ID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			d.MetadataJSON = "{}"
+		} else {
+			r.emitDBLog(ctx, "find_by_reference_id", startedAt, "failed", "query_failed")
+			return nil, err
+		}
+	}
+
+	r.emitDBLog(ctx, "find_by_reference_id", startedAt, "success", "")
+	return &domain.TransactionHistoryDetail{
+		TransactionHistory: toDomainHistory(h),
+		MetadataJSON:       d.MetadataJSON,
+		CreatedAt:          h.CreatedAt,
+		UpdatedAt:          h.UpdatedAt,
+	}, nil
+}
+
 func (r *transactionRepository) FindDetailByID(
 	ctx context.Context,
 	id string,

@@ -14,6 +14,7 @@ import (
 
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	handlergrpc "github.com/yogayulanda/transaction-history-service/internal/handler/grpc"
+	handlerkafka "github.com/yogayulanda/transaction-history-service/internal/handler/kafka"
 	"github.com/yogayulanda/transaction-history-service/internal/repository"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
 
@@ -23,6 +24,7 @@ import (
 
 type App struct {
 	HistoryHandler historyv1.HistoryServiceServer
+	KafkaInbound   *kafkaInboundRunner
 }
 
 func New(core *coreapp.App) (*App, error) {
@@ -96,8 +98,43 @@ func New(core *coreapp.App) (*App, error) {
 	)
 
 	historyHandler := handlergrpc.NewHistoryHandler(txService)
+	kafkaInbound, err := buildKafkaInbound(core, txService, publisher, log)
+	if err != nil {
+		return nil, err
+	}
 
 	return &App{
 		HistoryHandler: historyHandler,
+		KafkaInbound:   kafkaInbound,
 	}, nil
+}
+
+func buildKafkaInbound(
+	core *coreapp.App,
+	txService *service.TransactionService,
+	publisher messaging.Publisher,
+	log logger.Logger,
+) (*kafkaInboundRunner, error) {
+	inboundCfg := loadKafkaInboundConfig()
+	if !inboundCfg.Enabled {
+		return nil, nil
+	}
+	if publisher == nil {
+		return nil, fmt.Errorf("kafka inbound enabled but kafka publisher is not initialized")
+	}
+
+	handler := handlerkafka.NewTransactionCreatedHandler(txService, publisher, log)
+	consumer, err := core.NewKafkaConsumer(
+		inboundCfg.Topic,
+		inboundCfg.GroupID,
+		handler.Handle,
+		messaging.WithConsumerConcurrency(inboundCfg.Concurrency),
+		messaging.WithConsumerRetry(inboundCfg.RetryMax, inboundCfg.RetryDelay),
+		messaging.WithConsumerDLQ(publisher),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("init kafka inbound consumer failed: %w", err)
+	}
+
+	return newKafkaInboundRunner(context.Background(), consumer), nil
 }
