@@ -8,7 +8,7 @@ source: human
 evidence:
   - { type: doc, ref: ../../../.forge/forge.config.yaml }
 owner: unresolved
-updated: 2026-05-24
+updated: 2026-05-25
 ---
 
 # Context Manifest
@@ -29,7 +29,7 @@ Index and routing map for the entire context system. Not a knowledge source.
 1. `forge.config.yaml`
 2. `00-meta/context-manifest.md` ← this file
 3. `00-meta/conventions.md`
-4. `00-meta/glossary.md`
+4. `00-meta/glossary.md` *(if exists)*
 5. `01-core/*`
 6. `modes/<default_mode>.md` → resolve delta
 
@@ -38,11 +38,11 @@ Index and routing map for the entire context system. Not a knowledge source.
 - `forge.config.yaml`
 - `00-meta/context-manifest.md`
 - `00-meta/conventions.md`
-- `00-meta/glossary.md`
+- `00-meta/glossary.md` *(if exists)*
 - `01-core/product.md`
 - `01-core/architecture.md`
-- `01-core/principles.md`
-- `01-core/constraints.md`
+- `01-core/principles.md` *(optional in Minimal tier)*
+- `01-core/constraints.md` *(optional in Minimal tier)*
 
 ## Selective (Per Mode)
 
@@ -50,10 +50,11 @@ Index and routing map for the entire context system. Not a knowledge source.
 |---|---|
 | `layers/<layer>` | Mode referencing that layer |
 | `systems/<unit>` | Mode + task intent on that unit |
-| `knowledge/decisions/` | `implementation`, `execute`, `testing`, `review` |
-| `knowledge/assumptions.md`, `unknowns.md` | `planning`, `testing`, on-demand in `implementation`/`execute` |
-| `knowledge/inferred.md` | `implementation`, `execute`, `testing` |
+| `knowledge/decisions/` | `planning`, `implementation`, `execute`, `testing`, `review`, `refactor`; on-demand in `ask`/`incident` |
+| `knowledge/assumptions.md`, `unknowns.md` | `planning`, `testing`; on-demand in `ask`/`implementation`/`execute`/`review`/`incident` |
+| `knowledge/inferred.md` | `ask`, `implementation`, `execute`, `testing`, `incident`; on-demand in `review`/`refactor` |
 | `generated/*` | On-demand |
+| `generated/artifacts/*` | Explicit reference, mode handoff, or task relevance only |
 
 ## Never Auto-Loaded
 
@@ -68,6 +69,8 @@ Index and routing map for the entire context system. Not a knowledge source.
 - `confirmed`/`inferred` must have `evidence`.
 - `source: human` files not written by AI.
 - `modes/*` files never list `00-meta/*` or `01-core/*` (delta only).
+- Lifecycle artifacts are non-authoritative generated continuity helpers; artifact links never imply workflow, DAG, orchestration, agent memory, or execution-trigger semantics.
+- Runtime profile is metadata only; `runtime.non_interactive` remains the controlling interaction flag and automation-safe behavior never implies orchestration, agents, CI/CD, deploy, triggers, or executors.
 
 ## File Registry
 
@@ -94,16 +97,21 @@ Format: `path | id | type | status | owner`
 .forge/context/knowledge/unknowns.md                                    | knowledge.unknowns                    | knowledge  | confirmed | unresolved
 .forge/context/knowledge/inferred.md                                    | knowledge.inferred                    | knowledge  | confirmed | unresolved
 .forge/context/knowledge/confirmations.md                               | knowledge.confirmations               | knowledge  | confirmed | unresolved
+.forge/context/modes/ask.md                                             | mode.ask                              | mode       | confirmed | forge-context-engine
 .forge/context/modes/planning.md                                        | mode.planning                         | mode       | confirmed | forge-context-engine
 .forge/context/modes/implementation.md                                  | mode.implementation                   | mode       | confirmed | forge-context-engine
 .forge/context/modes/execute.md                                         | mode.execute                          | mode       | confirmed | forge-context-engine
 .forge/context/modes/testing.md                                         | mode.testing                          | mode       | confirmed | forge-context-engine
 .forge/context/modes/review.md                                          | mode.review                           | mode       | confirmed | forge-context-engine
+.forge/context/modes/incident.md                                        | mode.incident                         | mode       | confirmed | forge-context-engine
+.forge/context/modes/refactor.md                                        | mode.refactor                         | mode       | confirmed | forge-context-engine
 ```
 
 ## Active Configuration Snapshot
 
 - Tier: `standard`
-- Layers enabled: `backend`, `testing` *(infrastructure deactivated per v0.2.1 Layer Activation Rule — no IaC/deploy evidence)*
+- Layers enabled: `backend`, `testing` *(infrastructure deactivated per v0.2.2 Layer Activation Rule — no IaC/deploy evidence)*
 - Systems registered: `transaction-history-service` (type: `service`)
 - Default mode: `implementation`
+- Runtime profile: `local`
+- Runtime non-interactive: `false`
