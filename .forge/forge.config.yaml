@@ -1,35 +1,66 @@
-# forge-context-engine — Engine Configuration for transaction-history-service
-# Single-service Go backend. Initialized 2026-05-20.
+# forge-context-engine - Engine Configuration
+# Not a narrative context file. Customize during Context Initialization for the target repo.
 
-forge_version: "0.2.2"   # synced with latest Forge v1 runtime
-tier: standard
+forge:
+  version: "0.5.0a0"
+  profile: service
 
-# Repo ini backend-only (Go gRPC service). Frontend, mobile, infrastructure dihapus.
-# Infrastructure tidak diaktifkan — repo hanya punya migrations + build tooling + env config.
-# Per v0.2.2 Layer Activation Rule, evidence untuk infrastructure butuh IaC / deploy logic / orchestration.
-layers_enabled:
-  - backend
-  - testing
+ui:
+  language: en
 
-systems:
-  - { name: transaction-history-service, type: service }
+run:
+  interaction: manual
+  output: human
+  output_detail: standard
+  write_behavior: draft
+  failure_behavior: stop
 
-loading:
-  default_mode: implementation  # ask | planning | implementation | execute | testing | review | incident | refactor
-  respect_size_budget: true
+workflow:
+  default_mode: ask
+  disabled_modes: []
 
-runtime:
-  profile: local
-  non_interactive: false
-  decision_authority: ai
+context:
+  root: .forge/context
+  budget_profile: standard
 
-size_budget:
-  core_lines: 200
-  layer_lines: 150
-  system_lines: 200
-  mode_lines: 40
+policy:
+  high_risk_areas:
+    - payments
+    - authentication
+    - authorization
+    - public_api
+    - database_migrations
+    - secrets
+    - external_provider_integration
+    - file_upload
+  require_human_confirmation_for:
+    - domain_rule_change
+    - data_mutation_change
+    - architecture_boundary_change
+    - external_contract_change
+    - security_boundary_change
+    - migration_change
 
-governance:
-  staleness_days: 90
-  require_evidence_for: [confirmed, inferred]
-  demote_confirmed_on_evidence_change: true
+team:
+  context_update_flow: reviewable_patch
+  require_context_impact_check: true
+
+artifacts:
+  output_dir: .forge/generated
+  patch_dir: .forge/context-patches
+  temp_dir: .forge/temp
+  cache_dir: .forge/cache
+  commit_policy: manual
+  mr_policy: include_when_relevant
+
+tools:
+  adapters:
+    - codex
+    - claude
+    - copilot
+  default_adapter: codex
+  validation_commands: []
+  package_targets:
+    - codex
+    - claude
+    - copilot

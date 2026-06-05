@@ -7,34 +7,90 @@ confidence: high
 source: human
 evidence: [{ type: doc, ref: ../../../../specs/mode-invocation.md }]
 owner: forge-context-engine
-updated: 2026-05-25
+updated: 2026-06-05
 ---
+
 # Mode: Implementation
+
 ## include
 - `layers/<related>`
 - `systems/<related>`
 - `knowledge/decisions/`
 - `knowledge/inferred.md`
+
 ## on_demand
+- Approved plan or SDD
 - `knowledge/assumptions.md`
-- `generated/<relevant>`
+- `.forge/generated/<relevant>`
+
 ## exclude
 - `systems/<unrelated>`
 - `layers/<unrelated>`
+
 ## token_budget
 8000
-## notes
-- Convert an approved ECP, approved phases, or simple request into a task breakdown humans can execute or review.
-- When persistence helps continuity, write or reference an Execution Contract Artifact with readiness status, task cards, dependency order, stop conditions, do-not-change boundaries, acceptance criteria, and ECP reference.
-- If blockers affect runtime, contracts/schema, DLQ/replay, idempotency, security/compliance, ownership, destructive changes, acceptance criteria, or rollback, stop with `NEEDS_CONFIRMATION`.
-- `NEEDS_CONFIRMATION` must lead with blocker(s), explain execution impact briefly, then show `Recommended`, `Alternative`, and reply instructions: `1`, `2`, or concrete custom value.
-- For multiple blockers, use numbered blocker lines with one-line impact; avoid long defensive prose before the recommendation.
-- Use concrete labels such as `Format event Kafka yang akan diterima service` or `Nilai runtime/config yang wajib dipastikan`; avoid abstract labels like `Inbound contract`.
-- If blockers remain, ask confirmation first when interactive; in non-interactive repos emit `NEEDS_CONFIRMATION`; do not emit execution-ready task cards.
-- When `READY_FOR_EXECUTION` or `READY_FOR_PARTIAL_EXECUTION`, emit bounded task cards: Task ID, Title, Priority, Impact, Scope, Depends On, Parallel Safe, Goal, Why, Likely Files, Do Not Change, Out Of Scope, Derived From, Acceptance Criteria, and Test Expectation.
-- Prefer output order: Status; `Nilai eksekusi yang dipakai` when concrete; `Yang sengaja tidak diubah`; Task Cards; Dependency Order; Parallelization Notes; Ready For Execute Checklist; What executor must stop on.
-- Readiness status is required: `NEEDS_CONFIRMATION`, `NEEDS_HUMAN_APPROVAL`, `READY_FOR_PARTIAL_EXECUTION`, or `READY_FOR_EXECUTION`.
-- Before `READY_FOR_EXECUTION`, include concrete `Nilai eksekusi yang dipakai`; do not use conditional or unavailable values.
-- Do not modify code, redesign architecture, repeat full ECP reasoning, silently redefine approved plans, or invent unsupported ownership/topology/contracts/behavior.
-- Use scoped evidence first; report `CONTEXT_BUDGET_LIMITED`, `DRIFT_DETECTED`, or `DRIFT_RISK` when missing/stale evidence affects task safety.
-- Cross-repo contracts stay evidence/unknowns; governance uses `NEEDS_HUMAN_APPROVAL` for HIGH risk. Never copy raw secrets into code/context or add orchestration, agents, schedulers, workflow engines, DAGs, Jira/story-point planning, or tooling.
+
+## purpose
+Convert an approved plan into an Execution Context Package (ECP).
+
+## inputs
+- Approved plan with `status: ready_for_implementation`.
+- Relevant `.forge/context`.
+- Target adapter/tool.
+- Validation commands.
+- Risk policy and stop conditions.
+
+## behavior
+- Verify the plan is approved before generating execution instructions.
+- Produce a bounded, tool-ready ECP.
+- Convert the approved plan into a readiness package only; do not execute it.
+- Keep mode boundaries separate from assumptions carried into the ECP.
+- Resolve only execution packaging details that are safe and evidenced.
+- Keep universal edit guidance tool-aware: use the smallest safe edit mechanism available in the target tool, then add tool-specific notes only as sub-guidance.
+- Stop if required domain, security, architecture, contract, data, or migration decisions are missing.
+
+## outputs
+Execution Context Package (ECP) with:
+- Goal.
+- Approved scope.
+- Non-goals.
+- Mode Boundary.
+- Assumptions.
+- Relevant context.
+- Relevant evidence.
+- Exact files likely to change.
+- Task sequence.
+- Coding rules.
+- Safety / security constraints.
+- Acceptance criteria.
+- Validation commands.
+- Stop conditions.
+- Expected execution report format.
+- Status.
+- Step-by-step implementation guidance only inside the approved file/scope boundary.
+- Risk notes.
+- Target Tool Instructions:
+  - Use the smallest safe edit mechanism available in the target tool.
+  - For Codex, prefer `apply_patch` for scoped edits.
+  - For Claude Code, use its normal file-edit workflow while preserving approved scope.
+  - For Copilot, produce the smallest reviewable patch or task guidance according to the active Copilot workflow.
+  - Do not widen scope beyond the approved ECP.
+  - Do not commit or push unless explicitly requested by the human.
+
+## status values
+- `ecp_ready`
+- `blocked_by_decision`
+- `needs_more_evidence`
+- `needs_plan_approval`
+
+## boundaries
+- Implementation mode produces an ECP/readiness package only.
+- It does not edit files, stage, commit, push, or apply changes.
+- Execution requires explicit approval and `execute` mode.
+- Do not edit code, stage, commit, push, merge, deploy, or apply changes.
+- Do not silently redefine the approved plan.
+- Do not produce execution instructions while critical blockers remain.
+
+## next mode transitions
+- Use `execute` only after human approval of the ECP.
+- Return to `plan` when the approved plan is insufficient or contradicted by evidence.
