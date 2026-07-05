@@ -1,56 +1,104 @@
 manifest_version: "1"
-forge_version: "1.0.0rc1"
+context_profile_version: "2"
+forge_version: "1.1.0rc1"
 profile: "service"
 selected_tools:
   - codex
-  - claude
   - copilot
 installed_from: "git+https://github.com/yogayulanda/forge-context-engine.git"
 installed_at: "2026-06-05T09:26:19Z"
-template_revision: "1.0.0rc1"
-source_revision: "1.0.0rc1"
+template_revision: "1.1.0rc1"
+source_revision: "1.1.0rc1"
 managed_paths:
   - .forge/.gitignore
   - .forge/adapter.md
   - .forge/forge.config.yaml
   - .forge/forge-install.yaml
-  - .forge/context/00-meta/
-  - .forge/context/modes/
+  - .forge/generated/README.md
+  - .forge/context-patches/README.md
+  - .forge/context-archive/README.md
+  - .forge/skills/
+  - .forge/runtime/meta/
+  - .forge/runtime/modes/
   - AGENTS.md
-  - CLAUDE.md
   - .github/copilot-instructions.md
+  - .github/skills/
 user_owned_paths:
-  - .forge/context/01-core/
-  - .forge/context/layers/
-  - .forge/context/repo-map/
-  - .forge/context/systems/
-  - .forge/context/knowledge/
-  - .forge/context/decisions/
-  - .forge/context/unknowns/
+  - .forge/context/00-index.md
+  - .forge/context/01-service-overview.md
+  - .forge/context/02-architecture.md
+  - .forge/context/03-domain-boundaries.md
+  - .forge/context/04-interfaces-and-contracts.md
+  - .forge/context/05-data-and-persistence.md
+  - .forge/context/06-business-rules-and-flows.md
+  - .forge/context/07-integrations-and-dependencies.md
+  - .forge/context/08-security-and-access.md
+  - .forge/context/09-errors-and-resilience.md
+  - .forge/context/10-observability-and-support.md
+  - .forge/context/11-testing-and-quality.md
+  - .forge/context/12-runtime-deployment-and-config.md
+  - .forge/context/13-operations-and-runbook.md
+  - .forge/context/14-decisions-assumptions-and-constraints.md
+  - .forge/context/98-glossary.md
+  - .forge/context/99-open-questions.md
   - .forge/context-patches/
   - .forge/generated/
+  - .forge/context-archive/legacy-v1/
 local_only_paths:
   - .forge/temp/
   - .forge/cache/
+  - .forge/forge.local.yaml
 managed_file_hashes:
-  .forge/.gitignore: a96dd15e31be23b35e48a03a6806c73b0d4ed4d1e05282a0bda744511dcaf8bf
-  .forge/adapter.md: 864d3966f967bb3ea4cbc3099d44c5314229b19db4f07da1a93a5248d95f25d3
-  .forge/context/00-meta/context-manifest.md: 7a460b29c686804da47f9e1febb531287ac79a2c0cb5d8616b4988e8cf161ee2
-  .forge/context/00-meta/conventions-evidence.md: f1226a937009be6e37bf630fa6b74b17e4172024f23848c00bbc1b2688733109
-  .forge/context/00-meta/conventions-language.md: f4c8798207e4898a47dbf79f25e265c389558c6157f322505a02868d3342faad
-  .forge/context/00-meta/conventions-risk.md: 35477fc27df2bb9a95b7d60a72e26cacd1e917d46f36fa99bf592fd75a7c94d5
-  .forge/context/00-meta/conventions-validation.md: d771ff435c9f0dc5ff55bb02c47d5726b3169d9a9496695f1ef81a8d2d530f25
-  .forge/context/00-meta/conventions.md: 2fe674178ecab4a6ec95b4a2a986dbca293bbf21ec054e012f96aab9b3d8b24f
-  .forge/context/00-meta/glossary.md: 55074e2101ef769913c408722127d490cfc4fa4c8b0b29807c7316c9e7e89cc4
-  .forge/context/modes/ask.md: 75b4073e530d9fd0249b4edb72de9e54333e5140e391360f7152c6451662f353
-  .forge/context/modes/execute.md: 1f40aae8c5ad7bd549ad21a6b587b38add983d7afe9c86f43f879a4dd7b3dd39
-  .forge/context/modes/implementation.md: 82fac5cc934a8a3822c106064ca78abb729b281fa2b738ffc0678f15b8efae70
-  .forge/context/modes/incident.md: fe669013dc361868f979db58bad5727bc97e977aa1286a5355a155b199b69d3f
-  .forge/context/modes/init.md: ec79cd3fe3ae6c48aa0c2f13ba822c6d58927917acb87998273ca6a964cd029a
-  .forge/context/modes/plan.md: 2ad28d97c77db879c11391dc8263a197b3d7b612239d456984d7738c7d60623d
-  .forge/context/modes/planning.md: 025b58f3f1780532d6d7a19e5ddf32f7c5a3cf40aff2cfa08a11224e63eae5e4
-  .forge/context/modes/refactor.md: 19776df22975ec10d18ab5a40015037634025fbbfd5276be998e3aa96d39402f
-  .forge/context/modes/review.md: 71b91ad407c9c3943c8ca2819ddf4fb70273921bd4f72b9d5607811a1cd9d96d
-  .forge/context/modes/testing.md: 44f79dd049c3688b16a49f7d8c99577d61605fc7b29638e5860cc43b66247b33
-  .forge/context/modes/verify-context.md: 8d106ed8f1ddc17c370bef6e8e3091c6c9961203bcd9b5e0de0024a23aaedb70
-  .forge/forge.config.yaml: 7ae45b6df760755cccab482c8f493da6849c98e0d10b581ae9e626d35718e87c
+  .forge/.gitignore: ba4d7f42ce1fae231b14da9965c2de375242ac1b881a646535c2146160044cd6
+  .forge/adapter.md: aca40569f5a2767b3322d479dd0b4e8d4bf12fcfa66996cd7470c4020f2e7a10
+  .forge/context-archive/README.md: ff4638e5c441877e267af6ca3b43ac1b42a80172e0a13850fade599f56a64e86
+  .forge/context-patches/README.md: 435aa7aebfdc3ce69e75f97f5dca89f973c4d3b99c56450d82cbd3ab7f2ff531
+  .forge/forge.config.yaml: 894737419dd396d284f3d3afb81877324dac5ea9dd8e155245458a07ba47244c
+  .forge/generated/README.md: f7508460f69757f9679570631105eb477f65a82db96408c1fe51a78792f3ba1f
+  .forge/runtime/meta/ai-readiness-factors.md: cc1f10d0d38169a67be8d835feee66bb1e5a36174e7b902efc7a1e045976bc2b
+  .forge/runtime/meta/context-manifest.md: c930e6c975525741c61d2bb00618e2dc03869c873fa90b9725da4f6ea3b60abe
+  .forge/runtime/meta/conventions-evidence.md: 47947c41ffe2dac45468ed9eeac05599a1c7e75f1b0e161c0734bd9f2bd6371a
+  .forge/runtime/meta/conventions-language.md: d48280b4b4826d281c708fbb37fa6b3200598ad48c0166e02f42044f387fc2c3
+  .forge/runtime/meta/conventions-risk.md: 86b42844261e3d062b5c9e28a89bd341c001ec3c576a61543abed441be6d80cf
+  .forge/runtime/meta/conventions-validation.md: df5aac80e588526ed153d033300e66ef83a439d246f116708deb87cdd5d7370d
+  .forge/runtime/meta/conventions.md: c971154f20303fc6d2386d6352e84884ba49d4491de22012fc70c4cd65f6f8d6
+  .forge/runtime/meta/glossary.md: 1874516e3adee9377166375208dfd9a50e3cd49b526279d43dac099de8a00da1
+  .forge/runtime/modes/ai-readiness.md: 37a7cdabcb4d2ff6e0a93fef1aec6977342e6c2ffd8b9cd247b86e4cad04f8d5
+  .forge/runtime/modes/ask.md: ff85f8ecaaa4a7ee00eafb52ab754ecff5b79a1760dfa98d14f6d4b5c69ec286
+  .forge/runtime/modes/execute.md: cf530de83bf1cd7a87495d410c76eb18ae28c5086eff6196e07912ae6bdb2706
+  .forge/runtime/modes/implementation.md: 57a7611766cc994dc6ef2d7115659322c56d93704331310c9f68525a7cfd08a8
+  .forge/runtime/modes/incident.md: b063d1a479be0ee2881e8098b070734157e401d736a62b5475baf401363f52c3
+  .forge/runtime/modes/init.md: 38d9737e6cfdf6862c6703e2acfe0c19eb024bb1577a7b4b328b0298f8a3dd28
+  .forge/runtime/modes/plan.md: fe82e849866b39727ef9c74ec48bb91813486f98764e7d040258be0ac6975113
+  .forge/runtime/modes/planning.md: 9d7a259c8d051696cab6ec5b36c5c8513e8d82aad8c938ef0f72bf2a0623ff06
+  .forge/runtime/modes/refactor.md: 06269fb69c6cffc50b273c72f0a96981f9707881ba112e12a67e0a190a8ca45a
+  .forge/runtime/modes/review.md: 715505775f89dab18267b1351fd40bb98a5e4eac0f7c80fa99db310189ef92c2
+  .forge/runtime/modes/testing.md: ad0504ef6b9b47f9cf7f4bffe0cff02b7b8dea659f47419c6ec62de89d35c593
+  .forge/runtime/modes/update-context.md: 1138c941176c3b3d1f28d3cdd2507c14f79e734d9594e177d05be32ae58f2433
+  .forge/runtime/modes/verify-context.md: 26ddcecc89d23e4b886a27ad0bbfd171aeffc75089a88ad54cd2997cb6cbf6fe
+  .forge/skills/README.md: 4205dea758df1bf43294c6f98c11087df69607affb6155fc7255817cb782b8d0
+  .forge/skills/forge-ai-readiness/SKILL.md: fbbc7bdf2533e4a30ace9a5498cdf108b351b3ae0a2738b50581cc735eac8e81
+  .forge/skills/forge-ask/SKILL.md: 7a47632b6f0f68b78bc56050ee12c74b23fb1e35e67d0c2ffc79c1fc691765c6
+  .forge/skills/forge-execute/SKILL.md: aef574f097d8411a60c91b9f9892cafd8b5a8df8606286f33902ba38f2cde507
+  .forge/skills/forge-implementation/SKILL.md: 24a47151cd65338f6eb522e766419549001722867dfb0244f66bf673c2afb03c
+  .forge/skills/forge-incident/SKILL.md: 09f59b064f5eac706434386eebd8dad025c844e23d3e2f174462d423d1def3c8
+  .forge/skills/forge-init/SKILL.md: 19cf91cfa2ccf8365a58ea7f86c76f62768da5c3559677342d5a33fc2f1067e2
+  .forge/skills/forge-plan/SKILL.md: 5ab0d4e6fd074f6d1816a4fa16a997df3641a24299334d16e7a21d6e7086e923
+  .forge/skills/forge-refactor/SKILL.md: e3a13e4d37c861252c9a4a9b4817ab641d9eba59c7040b84a2bb84942505f18a
+  .forge/skills/forge-review/SKILL.md: f4950a4c3a1270042a5de6981495698a46c5d3a7d16fffb6b5d60bb1925cacab
+  .forge/skills/forge-test/SKILL.md: 64289baa5d195f757af207c7e43a091e41327ce15641bbf89a6a2aa1218092a1
+  .forge/skills/forge-update-context/SKILL.md: e3104c8335330d88f0a0baa3e11381bdc07a101dcb351ca9c489bc3a95f52189
+  .forge/skills/forge-verify-context/SKILL.md: 8ea06f7ab96cc4130eedd030520f891584e58a312208f4aeace475b084f521ec
+  .github/skills/README.md: 4205dea758df1bf43294c6f98c11087df69607affb6155fc7255817cb782b8d0
+  .github/skills/forge-ai-readiness/SKILL.md: fbbc7bdf2533e4a30ace9a5498cdf108b351b3ae0a2738b50581cc735eac8e81
+  .github/skills/forge-ask/SKILL.md: 7a47632b6f0f68b78bc56050ee12c74b23fb1e35e67d0c2ffc79c1fc691765c6
+  .github/skills/forge-execute/SKILL.md: aef574f097d8411a60c91b9f9892cafd8b5a8df8606286f33902ba38f2cde507
+  .github/skills/forge-implementation/SKILL.md: 24a47151cd65338f6eb522e766419549001722867dfb0244f66bf673c2afb03c
+  .github/skills/forge-incident/SKILL.md: 09f59b064f5eac706434386eebd8dad025c844e23d3e2f174462d423d1def3c8
+  .github/skills/forge-init/SKILL.md: 19cf91cfa2ccf8365a58ea7f86c76f62768da5c3559677342d5a33fc2f1067e2
+  .github/skills/forge-plan/SKILL.md: 5ab0d4e6fd074f6d1816a4fa16a997df3641a24299334d16e7a21d6e7086e923
+  .github/skills/forge-refactor/SKILL.md: e3a13e4d37c861252c9a4a9b4817ab641d9eba59c7040b84a2bb84942505f18a
+  .github/skills/forge-review/SKILL.md: f4950a4c3a1270042a5de6981495698a46c5d3a7d16fffb6b5d60bb1925cacab
+  .github/skills/forge-test/SKILL.md: 64289baa5d195f757af207c7e43a091e41327ce15641bbf89a6a2aa1218092a1
+  .github/skills/forge-update-context/SKILL.md: e3104c8335330d88f0a0baa3e11381bdc07a101dcb351ca9c489bc3a95f52189
+  .github/skills/forge-verify-context/SKILL.md: 8ea06f7ab96cc4130eedd030520f891584e58a312208f4aeace475b084f521ec
