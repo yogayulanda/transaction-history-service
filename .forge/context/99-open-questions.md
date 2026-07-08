@@ -21,3 +21,6 @@ updated: 2026-07-06
 - `U-OPS-001` `[informational]`: No on-call escalation path, dashboard inventory, or alert ownership is documented here.
 - `U-DOMAIN-001` `[informational]`: README names producer systems, while Kafka code uses a slightly different producer identifier for agent-payment (`ms-agent-payment-purchase` vs `agent-payment-purchase` wording in docs); maintainers should confirm the canonical producer name set.
 - `U-FLOW-001` `[informational]`: The schema includes status-event history and the domain defines `ErrInvalidStatus`, but no status-update flow beyond initial create is implemented in current service code.
+- `U-DATA-001` `[informational]`: Compliance, retention, and audit requirements for transaction history data are not documented in this repo, even though the service stores user identifiers, transaction records, and append-only status events.
+- `U-PERF-001` `[informational]`: No SLA, latency target, throughput expectation, or pagination-scale target is documented for `CreateTransactionHistory` or `GetUserHistory`.
+- `U-VALIDATION-001` `[informational]`: Schema and docs require `direction`, but current gRPC/service/Kafka required-field validation does not clearly enforce non-empty `direction` before persistence; maintainers should confirm whether service-layer validation is intended to reject missing direction consistently.

@@ -31,6 +31,7 @@ updated: 2026-07-06
 - Check constraints enforce allowed `product_group`, `transaction_route`, `direction`, and `status_code` values.
 - Amount, fee, and total_amount must be non-negative.
 - `transaction_history_details` and `transaction_history_status_events` cascade-delete with the parent history row.
+- Core business fields such as `reference_id`, `source_service`, `channel`, `product_group`, `product_type`, `transaction_route`, `status_code`, and `transaction_time` are modeled as first-class columns; `metadata_json` is stored separately in `transaction_history_details` for extensible product-specific metadata.
 
 ## Write Behavior
 - Repository `Create` inserts history, detail, and initial status event in one DB transaction.
