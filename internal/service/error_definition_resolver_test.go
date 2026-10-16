@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 )
 
@@ -22,7 +21,7 @@ func (f *fakeErrorDefinitionRepo) ListActiveErrorDefinitions(context.Context) ([
 	return f.rows, nil
 }
 
-func TestDBErrorDefinitionResolver_LoadAndResolveSuccess(t *testing.T) {
+func TestDBErrorDefinitionResolver_LoadAndResolveMessage(t *testing.T) {
 	repo := &fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{
 			ErrorCode:   "TRH-VAL-001",
@@ -38,23 +37,20 @@ func TestDBErrorDefinitionResolver_LoadAndResolveSuccess(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	userMessage, details, ok := resolver.Resolve("TRH-VAL-001")
+	userMessage, ok := resolver.Message(context.Background(), " trh-val-001 ")
 	if !ok {
 		t.Fatal("expected definition to exist")
 	}
 	if userMessage != "permintaan tidak valid" {
 		t.Fatalf("unexpected user message: %q", userMessage)
 	}
-	if len(details) != 1 || details[0].Field != "user_id" {
-		t.Fatalf("unexpected details: %+v", details)
-	}
 }
 
-func TestDBErrorDefinitionResolver_LoadSkipsMalformedDetails(t *testing.T) {
+func TestDBErrorDefinitionResolver_EmptyMessageIsNotProvided(t *testing.T) {
 	repo := &fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{
 			ErrorCode:   "TRH-REC-001",
-			UserMessage: "internal server error",
+			UserMessage: "  ",
 			DetailsJSON: `{not-json}`,
 			IsActive:    true,
 			UpdatedAt:   time.Now().UTC(),
@@ -66,12 +62,8 @@ func TestDBErrorDefinitionResolver_LoadSkipsMalformedDetails(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	_, details, ok := resolver.Resolve("TRH-REC-001")
-	if !ok {
-		t.Fatal("expected definition to exist")
-	}
-	if len(details) != 0 {
-		t.Fatalf("expected malformed details to be ignored, got %+v", details)
+	if message, ok := resolver.Message(context.Background(), "TRH-REC-001"); ok || message != "" {
+		t.Fatalf("expected no message for empty user message, got %q (present=%v)", message, ok)
 	}
 }
 
@@ -96,34 +88,11 @@ func TestDBErrorDefinitionResolver_RefreshFailureKeepsPreviousCache(t *testing.T
 		t.Fatal("expected refresh error")
 	}
 
-	msg, _, ok := resolver.Resolve("TRH-VAL-002")
+	msg, ok := resolver.Message(context.Background(), "TRH-VAL-002")
 	if !ok {
 		t.Fatal("expected previous cache to remain available")
 	}
 	if msg != "reference duplicate" {
 		t.Fatalf("unexpected cached message: %q", msg)
-	}
-}
-
-func TestParseDefinitionDetails_EmptyAndInvalid(t *testing.T) {
-	details, err := parseDefinitionDetails("")
-	if err != nil {
-		t.Fatalf("expected nil error for empty input, got %v", err)
-	}
-	if len(details) != 0 {
-		t.Fatalf("expected no details, got %+v", details)
-	}
-
-	_, err = parseDefinitionDetails("{bad}")
-	if err == nil {
-		t.Fatal("expected parse error")
-	}
-
-	details, err = parseDefinitionDetails(`[{"field":"amount","reason":"must be >= 0"}]`)
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
-	if len(details) != 1 || details[0] != (coreerrors.Detail{Field: "amount", Reason: "must be >= 0"}) {
-		t.Fatalf("unexpected parsed details: %+v", details)
 	}
 }

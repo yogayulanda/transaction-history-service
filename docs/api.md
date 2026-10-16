@@ -6,6 +6,8 @@ Service exposes gRPC and HTTP/REST via grpc-gateway.
 
 `http://localhost:8080/v1`
 
+The HTTP envelope examples below are derived from the go-core v1.2.1 gateway implementation and are pending smoke verification against a running service and SQL Server.
+
 ---
 
 ## 1. Get User History
@@ -36,30 +38,37 @@ Validation notes:
 
 ```json
 {
-  "items": [
-    {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "userId": "usr_123",
-      "referenceId": "ref_abc123",
-      "externalRefId": "ext_ref_456",
-      "productGroup": "transfer",
-      "productType": "transfer_internal",
-      "transactionRoute": "internal",
-      "channel": "mobile_app",
-      "direction": "debit",
-      "amount": "100000",
-      "fee": "0",
-      "totalAmount": "100000",
-      "currency": "IDR",
-      "statusCode": "TRANSACTION_STATUS_CODE_SUCCESS",
-      "errorCode": "",
-      "errorMessage": "",
-      "sourceService": "trxFinance",
-      "transactionTime": "2026-04-10T12:00:00Z"
-    }
-  ],
-  "nextCursor": "10",
-  "hasMore": true
+  "status": "SUCCESS",
+  "response_code": "CORE-0000",
+  "message": "success",
+  "request_id": "req-123",
+  "timestamp": "2026-04-10T12:00:00.000Z",
+  "data": {
+    "items": [
+      {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "userId": "usr_123",
+        "referenceId": "ref_abc123",
+        "externalRefId": "ext_ref_456",
+        "productGroup": "transfer",
+        "productType": "transfer_internal",
+        "transactionRoute": "internal",
+        "channel": "mobile_app",
+        "direction": "debit",
+        "amount": "100000",
+        "fee": "0",
+        "totalAmount": "100000",
+        "currency": "IDR",
+        "statusCode": "TRANSACTION_STATUS_CODE_SUCCESS",
+        "errorCode": "",
+        "errorMessage": "",
+        "sourceService": "trxFinance",
+        "transactionTime": "2026-04-10T12:00:00Z"
+      }
+    ],
+    "nextCursor": "10",
+    "hasMore": true
+  }
 }
 ```
 
@@ -81,28 +90,35 @@ Retrieve detail by transaction ID.
 
 ```json
 {
+  "status": "SUCCESS",
+  "response_code": "CORE-0000",
+  "message": "success",
+  "request_id": "req-123",
+  "timestamp": "2026-04-10T12:00:00.000Z",
   "data": {
-    "id": "123e4567-e89b-12d3-a456-426614174000",
-    "userId": "usr_123",
-    "referenceId": "ref_abc123",
-    "externalRefId": "ext_ref_456",
-    "productGroup": "transfer",
-    "productType": "transfer_internal",
-    "transactionRoute": "internal",
-    "channel": "mobile_app",
-    "direction": "debit",
-    "amount": "100000",
-    "fee": "0",
-    "totalAmount": "100000",
-    "currency": "IDR",
-    "statusCode": "TRANSACTION_STATUS_CODE_SUCCESS",
-    "errorCode": "",
-    "errorMessage": "",
-    "sourceService": "trxFinance",
-    "transactionTime": "2026-04-10T12:00:00Z",
-    "metadataJson": "{\"beneficiary_account\":\"1234567890\"}",
-    "createdAt": "2026-04-10T12:00:00.123Z",
-    "updatedAt": "2026-04-10T12:00:00.123Z"
+    "data": {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "userId": "usr_123",
+      "referenceId": "ref_abc123",
+      "externalRefId": "ext_ref_456",
+      "productGroup": "transfer",
+      "productType": "transfer_internal",
+      "transactionRoute": "internal",
+      "channel": "mobile_app",
+      "direction": "debit",
+      "amount": "100000",
+      "fee": "0",
+      "totalAmount": "100000",
+      "currency": "IDR",
+      "statusCode": "TRANSACTION_STATUS_CODE_SUCCESS",
+      "errorCode": "",
+      "errorMessage": "",
+      "sourceService": "trxFinance",
+      "transactionTime": "2026-04-10T12:00:00Z",
+      "metadataJson": "{\"beneficiary_account\":\"1234567890\"}",
+      "createdAt": "2026-04-10T12:00:00.123Z",
+      "updatedAt": "2026-04-10T12:00:00.123Z"
+    }
   }
 }
 ```
@@ -146,7 +162,14 @@ Validation notes:
 
 ```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000"
+  "status": "SUCCESS",
+  "response_code": "CORE-0000",
+  "message": "success",
+  "request_id": "req-123",
+  "timestamp": "2026-04-10T12:00:00.000Z",
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000"
+  }
 }
 ```
 
@@ -155,8 +178,51 @@ Validation notes:
 ## Error and Security Notes
 
 - Service error responses are sanitized through `go-core/errors` mapping (`coreerrors.ToGRPC`).
-- gRPC and HTTP status semantics remain canonical (`InvalidArgument`, `NotFound`, `Internal`, etc.).
+- Error envelopes contain `status`, `response_code`, `message`, `request_id`, and `timestamp`; `details` is included for `CORE-1000` field violations.
+- Envelope examples below are derived from go-core v1.2.1 code and remain pending smoke verification.
 - JWT verification mode and signature middleware are controlled by go-core runtime config.
+
+### Error Codes
+
+| `response_code` | HTTP | Meaning |
+|---|---:|---|
+| `CORE-1000` | 400 | Invalid request; includes field-level `details` when available. |
+| `TRH-VAL-002` | 400 | A transaction with this reference was already processed. |
+| `TRH-DB-001` | 404 | Transaction history was not found; message comes from the active DB definition when available. |
+| `TRH-REC-001` | 500 | Non-recoverable service error. |
+| `CORE-9000` | 500 | Fallback for unregistered or unknown errors. |
+
+### Error Examples
+
+Not found:
+
+```json
+{
+  "status": "FAILED",
+  "response_code": "TRH-DB-001",
+  "message": "Riwayat transaksi tidak ditemukan.",
+  "request_id": "req-123",
+  "timestamp": "2026-04-10T12:00:00.000Z"
+}
+```
+
+Invalid input:
+
+```json
+{
+  "status": "FAILED",
+  "response_code": "CORE-1000",
+  "message": "Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.",
+  "request_id": "req-123",
+  "timestamp": "2026-04-10T12:00:00.000Z",
+  "details": [
+    {
+      "field": "user_id",
+      "reason": "is required"
+    }
+  ]
+}
+```
 
 ## Reference: Status Codes
 

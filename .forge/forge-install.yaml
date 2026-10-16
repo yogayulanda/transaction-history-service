@@ -43,7 +43,6 @@ user_owned_paths:
   - .forge/context/99-open-questions.md
   - .forge/context-patches/
   - .forge/generated/
-  - .forge/context-archive/legacy-v1/
 local_only_paths:
   - .forge/temp/
   - .forge/cache/
@@ -65,11 +64,11 @@ managed_file_hashes:
   .forge/runtime/meta/glossary.md: 1874516e3adee9377166375208dfd9a50e3cd49b526279d43dac099de8a00da1
   .forge/runtime/modes/ai-readiness.md: 37a7cdabcb4d2ff6e0a93fef1aec6977342e6c2ffd8b9cd247b86e4cad04f8d5
   .forge/runtime/modes/ask.md: ff85f8ecaaa4a7ee00eafb52ab754ecff5b79a1760dfa98d14f6d4b5c69ec286
-  .forge/runtime/modes/execute.md: cf530de83bf1cd7a87495d410c76eb18ae28c5086eff6196e07912ae6bdb2706
-  .forge/runtime/modes/implementation.md: 57a7611766cc994dc6ef2d7115659322c56d93704331310c9f68525a7cfd08a8
+  .forge/runtime/modes/execute.md: 6f2a99ce0ef969e942f2a43095dfc924c3f650ff366d16198a927d76ea436d3e
+  .forge/runtime/modes/implementation.md: bf7a29d7095e9e3eca2a14e5beb823e073ad2ffc1354bd5e6412c1a177696f76
   .forge/runtime/modes/incident.md: b063d1a479be0ee2881e8098b070734157e401d736a62b5475baf401363f52c3
   .forge/runtime/modes/init.md: 38d9737e6cfdf6862c6703e2acfe0c19eb024bb1577a7b4b328b0298f8a3dd28
-  .forge/runtime/modes/plan.md: fe82e849866b39727ef9c74ec48bb91813486f98764e7d040258be0ac6975113
+  .forge/runtime/modes/plan.md: 151255dec46466a964546809e63a27412cb1015c12746874a66e89bbcfbae91e
   .forge/runtime/modes/planning.md: 9d7a259c8d051696cab6ec5b36c5c8513e8d82aad8c938ef0f72bf2a0623ff06
   .forge/runtime/modes/refactor.md: 06269fb69c6cffc50b273c72f0a96981f9707881ba112e12a67e0a190a8ca45a
   .forge/runtime/modes/review.md: 715505775f89dab18267b1351fd40bb98a5e4eac0f7c80fa99db310189ef92c2

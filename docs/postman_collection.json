@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Transaction History Service API",
-    "description": "API endpoints for the Go Transaction History Service",
+    "description": "API endpoints for the Go Transaction History Service. Response envelopes are derived from go-core v1.2.1 gateway code and are pending smoke verification against a running service and SQL Server.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -65,7 +65,25 @@
             }
           ]
         }
-      }
+      },
+      "response": [
+        {
+          "name": "200 success envelope (derived; pending smoke verification)",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": "{\n  \"status\": \"SUCCESS\",\n  \"response_code\": \"CORE-0000\",\n  \"message\": \"success\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"data\": {\n    \"items\": [],\n    \"nextCursor\": \"\",\n    \"hasMore\": false\n  }\n}"
+        },
+        {
+          "name": "400 CORE-1000 validation error (derived; pending smoke verification)",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"CORE-1000\",\n  \"message\": \"Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"details\": [{\"field\": \"user_id\", \"reason\": \"is required\"}]\n}"
+        }
+      ]
     },
     {
       "name": "Get Transaction History Detail",
@@ -89,7 +107,33 @@
             }
           ]
         }
-      }
+      },
+      "response": [
+        {
+          "name": "200 success envelope (derived; pending smoke verification)",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": "{\n  \"status\": \"SUCCESS\",\n  \"response_code\": \"CORE-0000\",\n  \"message\": \"success\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"data\": {\n    \"data\": {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n      \"userId\": \"usr_123\",\n      \"referenceId\": \"ref_abc123\"\n    }\n  }\n}"
+        },
+        {
+          "name": "404 TRH-DB-001 not found (derived; pending smoke verification)",
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"TRH-DB-001\",\n  \"message\": \"Riwayat transaksi tidak ditemukan.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\"\n}"
+        },
+        {
+          "name": "400 CORE-1000 validation error (derived; pending smoke verification)",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"CORE-1000\",\n  \"message\": \"Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"details\": [{\"field\": \"id\", \"reason\": \"required\"}]\n}"
+        }
+      ]
     },
     {
       "name": "Create Transaction History",
@@ -115,7 +159,33 @@
             "transaction-histories"
           ]
         }
-      }
+      },
+      "response": [
+        {
+          "name": "200 success envelope (derived; pending smoke verification)",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": "{\n  \"status\": \"SUCCESS\",\n  \"response_code\": \"CORE-0000\",\n  \"message\": \"success\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174000\"\n  }\n}"
+        },
+        {
+          "name": "400 CORE-1000 validation error (derived; pending smoke verification)",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"CORE-1000\",\n  \"message\": \"Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"details\": [{\"field\": \"user_id\", \"reason\": \"is required\"}]\n}"
+        },
+        {
+          "name": "400 TRH-VAL-002 duplicate reference (derived; pending smoke verification)",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"TRH-VAL-002\",\n  \"message\": \"Transaksi dengan referensi ini sudah pernah diproses.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\"\n}"
+        }
+      ]
     }
   ],
   "variable": [

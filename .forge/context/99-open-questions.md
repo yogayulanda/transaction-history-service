@@ -10,7 +10,7 @@ evidence:
   - { type: code, ref: cmd/server/main.go }
   - { type: doc, ref: README.md }
 owner: unresolved
-updated: 2026-07-06
+updated: 2026-10-15
 ---
 
 # Open Questions
@@ -24,3 +24,7 @@ updated: 2026-07-06
 - `U-DATA-001` `[informational]`: Compliance, retention, and audit requirements for transaction history data are not documented in this repo, even though the service stores user identifiers, transaction records, and append-only status events.
 - `U-PERF-001` `[informational]`: No SLA, latency target, throughput expectation, or pagination-scale target is documented for `CreateTransactionHistory` or `GetUserHistory`.
 - `U-VALIDATION-001` `[informational]`: Schema and docs require `direction`, but current gRPC/service/Kafka required-field validation does not clearly enforce non-empty `direction` before persistence; maintainers should confirm whether service-layer validation is intended to reject missing direction consistently.
+- `U-PREDEPLOY-001` `[blocking]`: Before first deployment, run migrations 0001-0004 against SQL Server using the code-configured migration settings and verify migration 0004 is idempotent; smoke `GET /v1/history/{unknown-id}` for HTTP 404 `TRH-DB-001` with the DB-backed message and invalid input for HTTP 400 `CORE-1000` with field `details`; re-run `govulncheck` and review the uncalled finding `GO-2026-5932` in `golang.org/x/crypto@v0.57.0` (fixed version: N/A).
+- `U-PREDEPLOY-002` `[blocking]`: Confirm TLS compatibility with Kafka, APM, and SQL Server under Go 1.26 before deployment.
+- `U-PREDEPLOY-003` `[blocking]`: Confirm the go-core shutdown budget (3s + 25s) fits the OpenShift termination grace period.
+- `U-PREDEPLOY-004` `[blocking]`: Confirm ECS log keys expected by existing dashboards, including the move from transaction logs to service logs and field-bag identity labels.

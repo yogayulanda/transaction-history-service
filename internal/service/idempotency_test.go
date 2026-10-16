@@ -44,7 +44,7 @@ func TestCreateTransactionHistoryIdempotent_EquivalentDuplicateNoOp(t *testing.T
 				MetadataJSON: `{"customer_number":"123"}`,
 			}, nil
 		},
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	id, noOp, err := svc.CreateTransactionHistoryIdempotent(context.Background(), domain.CreateTransactionHistoryInput{
 		UserID:           " user-1 ",
@@ -98,7 +98,7 @@ func TestCreateTransactionHistoryIdempotent_ConflictingDuplicate(t *testing.T) {
 				MetadataJSON: `{}`,
 			}, nil
 		},
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	_, _, err := svc.CreateTransactionHistoryIdempotent(context.Background(), domain.CreateTransactionHistoryInput{
 		UserID:           "user-1",

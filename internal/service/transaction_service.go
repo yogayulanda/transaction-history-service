@@ -12,16 +12,16 @@ import (
 	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/go-core/messaging"
+	"github.com/yogayulanda/go-core/observability"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	"gorm.io/gorm"
 )
 
 type TransactionService struct {
-	repo          domain.TransactionRepository
-	cache         cache.Cache
-	publisher     messaging.Publisher
-	log           logger.Logger
-	errorResolver ErrorDefinitionResolver
+	repo      domain.TransactionRepository
+	cache     cache.Cache
+	publisher messaging.Publisher
+	log       logger.Logger
 }
 
 func NewTransactionService(
@@ -29,14 +29,12 @@ func NewTransactionService(
 	cache cache.Cache,
 	publisher messaging.Publisher,
 	log logger.Logger,
-	errorResolver ErrorDefinitionResolver,
 ) *TransactionService {
 	return &TransactionService{
-		repo:          repo,
-		cache:         cache,
-		publisher:     publisher,
-		log:           log,
-		errorResolver: errorResolver,
+		repo:      repo,
+		cache:     cache,
+		publisher: publisher,
+		log:       log,
 	}
 }
 
@@ -51,21 +49,22 @@ func (s *TransactionService) CreateTransactionHistory(
 		s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "validation_failed")
 		return "", err
 	}
+	if observability.GetUserID(ctx) == "" {
+		_ = observability.SetUserID(ctx, normalized.UserID)
+	}
+	_ = observability.SetLabel(ctx, "reference_id", normalized.ReferenceID)
 
 	id, err := s.repo.Create(ctx, normalized)
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "duplicate_reference")
-			s.emitTransactionLog(ctx, "create_transaction", "", normalized.UserID, "failed", startedAt, "DUPLICATE_REFERENCE")
-			return "", NewDuplicateReferenceIDError(s.errorResolver)
+			return "", NewDuplicateReferenceIDError()
 		}
 		s.emitServiceLog(ctx, "create_transaction", "failed", startedAt, "repository_error")
-		s.emitTransactionLog(ctx, "create_transaction", "", normalized.UserID, "failed", startedAt, "INTERNAL_ERROR")
-		return "", NewInternalError("failed to create transaction history", err, s.errorResolver)
+		return "", NewInternalError("failed to create transaction history", err)
 	}
 
 	s.emitServiceLog(ctx, "create_transaction", "success", startedAt, "")
-	s.emitTransactionLog(ctx, "create_transaction", id, normalized.UserID, "success", startedAt, "")
 
 	return id, nil
 }
@@ -80,10 +79,10 @@ func (s *TransactionService) GetTransactionHistoryDetail(
 	if err != nil {
 		if errors.Is(err, domain.ErrTransactionNotFound) {
 			s.emitServiceLog(ctx, "get_transaction_detail", "failed", startedAt, "not_found")
-			return nil, NewNotFoundError("transaction history not found", s.errorResolver)
+			return nil, NewNotFoundError("transaction history not found")
 		}
 		s.emitServiceLog(ctx, "get_transaction_detail", "failed", startedAt, "repository_error")
-		return nil, NewInternalError("failed to get transaction history detail", err, s.errorResolver)
+		return nil, NewInternalError("failed to get transaction history detail", err)
 	}
 
 	s.emitServiceLog(ctx, "get_transaction_detail", "success", startedAt, "")
@@ -99,7 +98,7 @@ func (s *TransactionService) GetUserHistory(
 	items, hasMore, err := s.repo.ListByUser(ctx, filter)
 	if err != nil {
 		s.emitServiceLog(ctx, "get_user_history", "failed", startedAt, "repository_error")
-		return nil, false, NewInternalError("failed to get user history", err, s.errorResolver)
+		return nil, false, NewInternalError("failed to get user history", err)
 	}
 
 	s.emitServiceLog(ctx, "get_user_history", "success", startedAt, "")
@@ -115,20 +114,6 @@ func (s *TransactionService) emitServiceLog(ctx context.Context, operation, stat
 		Status:     status,
 		DurationMs: time.Since(startedAt).Milliseconds(),
 		ErrorCode:  errorCode,
-	})
-}
-
-func (s *TransactionService) emitTransactionLog(ctx context.Context, operation, txID, userID, status string, startedAt time.Time, errorCode string) {
-	if s.log == nil {
-		return
-	}
-	s.log.LogTransaction(ctx, logger.TransactionLog{
-		Operation:     operation,
-		TransactionID: txID,
-		UserID:        userID,
-		Status:        status,
-		DurationMs:    time.Since(startedAt).Milliseconds(),
-		ErrorCode:     errorCode,
 	})
 }
 
@@ -212,7 +197,11 @@ func validateJSONObject(raw string) error {
 }
 
 func (s *TransactionService) invalidInput(msg string) *coreerrors.AppError {
-	return NewInvalidInputError(msg, s.errorResolver)
+	field, reason, ok := strings.Cut(strings.TrimSpace(msg), " ")
+	if !ok {
+		return NewInvalidInputError(msg)
+	}
+	return NewInvalidInputError(msg, coreerrors.Detail{Field: field, Reason: strings.TrimSpace(reason)})
 }
 
 func isAlphaString(raw string, expectedLen int) bool {

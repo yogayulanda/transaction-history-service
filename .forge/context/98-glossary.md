@@ -10,7 +10,7 @@ evidence:
   - { type: code, ref: proto/history/v1/history.proto }
   - { type: code, ref: internal/handler/kafka/transaction_created.go }
 owner: unresolved
-updated: 2026-07-06
+updated: 2026-10-15
 ---
 
 # Glossary
@@ -22,3 +22,9 @@ updated: 2026-07-06
 - `HistoryService`: The gRPC service defined in `proto/history/v1/history.proto`.
 - `DLQ`: Dead-letter topic `transaction-history.transaction.created.dlq` for non-retryable Kafka inbound failures.
 - `TRH`: Error taxonomy domain prefix used by this service (`TRH-VAL-*`, `TRH-DB-*`, `TRH-REC-*`).
+- `CORE-1000`: go-core invalid-request response code; service field violations are returned as `details`.
+- `TRH-VAL-002`: Registered duplicate-reference response code.
+- `TRH-DB-001`: Registered transaction-history-not-found response code.
+- `TRH-REC-001`: Registered non-recoverable service error response code.
+- `response_code`: Envelope field containing a registered go-core or service response code.
+- `MessageProvider`: go-core interface used to resolve active database-backed user messages.

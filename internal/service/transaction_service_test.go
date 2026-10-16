@@ -6,27 +6,14 @@ import (
 	"testing"
 
 	coreerrors "github.com/yogayulanda/go-core/errors"
+	"github.com/yogayulanda/go-core/observability"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	"gorm.io/gorm"
 )
 
 type fakeRepository struct {
-	createFn func(ctx context.Context, in domain.CreateTransactionHistoryInput) (string, error)
+	createFn            func(ctx context.Context, in domain.CreateTransactionHistoryInput) (string, error)
 	findByReferenceIDFn func(ctx context.Context, referenceID string) (*domain.TransactionHistoryDetail, error)
-}
-
-type testResolver struct {
-	userMessage string
-	details     []coreerrors.Detail
-}
-
-func (r testResolver) Resolve(code string) (string, []coreerrors.Detail, bool) {
-	if code != "TRH-VAL-001" {
-		return "", nil, false
-	}
-	out := make([]coreerrors.Detail, len(r.details))
-	copy(out, r.details)
-	return r.userMessage, out, true
 }
 
 func (f fakeRepository) Create(ctx context.Context, in domain.CreateTransactionHistoryInput) (string, error) {
@@ -52,11 +39,12 @@ func (f fakeRepository) ListByUser(context.Context, domain.ListUserHistoryFilter
 }
 
 func TestCreateTransactionHistory_ValidatesBusinessFields(t *testing.T) {
-	svc := NewTransactionService(fakeRepository{}, nil, nil, nil, nil)
+	svc := NewTransactionService(fakeRepository{}, nil, nil, nil)
 
 	_, err := svc.CreateTransactionHistory(context.Background(), domain.CreateTransactionHistoryInput{
 		UserID:        "user-1",
 		ReferenceID:   "ref-1",
+		Channel:       "app-one",
 		ProductGroup:  "transfer",
 		ProductType:   "transfer_internal",
 		StatusCode:    "SUCCESS",
@@ -71,11 +59,11 @@ func TestCreateTransactionHistory_ValidatesBusinessFields(t *testing.T) {
 	if !errors.As(err, &appErr) {
 		t.Fatalf("expected AppError, got %T: %v", err, err)
 	}
-	if appErr.Code != coreerrors.CodeInvalidRequest {
-		t.Fatalf("expected INVALID_REQUEST code, got %s", appErr.Code)
+	if appErr.Code != "CORE-1000" {
+		t.Fatalf("expected CORE-1000 code, got %s", appErr.Code)
 	}
-	if appErr.FormatCode() != "TRH-VAL-001" {
-		t.Fatalf("expected format code TRH-VAL-001, got %s", appErr.FormatCode())
+	if len(appErr.Details) == 0 || appErr.Details[0].Field != "metadata_json" {
+		t.Fatalf("expected metadata_json validation detail, got %+v", appErr.Details)
 	}
 }
 
@@ -86,7 +74,7 @@ func TestCreateTransactionHistory_NormalizesAndDefaultsInput(t *testing.T) {
 			saved = in
 			return "tx-123", nil
 		},
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	id, err := svc.CreateTransactionHistory(context.Background(), domain.CreateTransactionHistoryInput{
 		UserID:        " user-1 ",
@@ -118,7 +106,7 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 		createFn: func(context.Context, domain.CreateTransactionHistoryInput) (string, error) {
 			return "", gorm.ErrDuplicatedKey
 		},
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil)
 
 	_, err := svc.CreateTransactionHistory(context.Background(), domain.CreateTransactionHistoryInput{
 		UserID:        "user-1",
@@ -135,35 +123,32 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 	if !errors.As(err, &appErr) {
 		t.Fatalf("expected AppError, got %T: %v", err, err)
 	}
-	if appErr.Code != coreerrors.CodeInvalidRequest {
-		t.Fatalf("expected INVALID_REQUEST code, got %s", appErr.Code)
-	}
-	if appErr.FormatCode() != "TRH-VAL-002" {
-		t.Fatalf("expected format code TRH-VAL-002, got %s", appErr.FormatCode())
+	if appErr.Code != CodeDuplicateReferenceID {
+		t.Fatalf("expected %s code, got %s", CodeDuplicateReferenceID, appErr.Code)
 	}
 }
 
-func TestCreateTransactionHistory_UsesDynamicValidationMessageWhenAvailable(t *testing.T) {
-	svc := NewTransactionService(fakeRepository{}, nil, nil, nil, testResolver{
-		userMessage: "permintaan tidak valid",
-		details: []coreerrors.Detail{
-			{Field: "user_id", Reason: "harus diisi"},
-		},
+func TestCreateTransactionHistory_StoresIdentityInObservabilityFieldBag(t *testing.T) {
+	ctx := observability.EnsureFieldBag(context.Background())
+	svc := NewTransactionService(fakeRepository{}, nil, nil, nil)
+	_, err := svc.CreateTransactionHistory(ctx, domain.CreateTransactionHistoryInput{
+		UserID:        "user-1",
+		ReferenceID:   "ref-1",
+		ProductGroup:  "transfer",
+		ProductType:   "transfer_internal",
+		Channel:       "app-one",
+		StatusCode:    "SUCCESS",
+		SourceService: "trxFinance",
+		Currency:      "IDR",
+		MetadataJSON:  "{}",
 	})
-
-	_, err := svc.CreateTransactionHistory(context.Background(), domain.CreateTransactionHistoryInput{})
-	if err == nil {
-		t.Fatal("expected validation error")
+	if err != nil {
+		t.Fatalf("expected successful create, got %v", err)
 	}
-
-	var appErr *coreerrors.AppError
-	if !errors.As(err, &appErr) {
-		t.Fatalf("expected AppError, got %T: %v", err, err)
+	if got := observability.GetUserID(ctx); got != "user-1" {
+		t.Fatalf("expected user id user-1, got %q", got)
 	}
-	if appErr.UserMessage != "permintaan tidak valid" {
-		t.Fatalf("expected dynamic user message, got %q", appErr.UserMessage)
-	}
-	if len(appErr.Details) != 1 || appErr.Details[0].Field != "user_id" {
-		t.Fatalf("unexpected dynamic details: %+v", appErr.Details)
+	if got := observability.Labels(ctx)["reference_id"]; got != "ref-1" {
+		t.Fatalf("expected reference_id label ref-1, got %q", got)
 	}
 }

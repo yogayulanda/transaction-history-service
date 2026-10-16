@@ -17,20 +17,20 @@ import (
 )
 
 const (
-	TransactionCreatedTopic      = "transaction-history.transaction.created"
-	TransactionCreatedDLQTopic   = "transaction-history.transaction.created.dlq"
-	TransactionCreatedGroupID    = "transaction-history-service"
-	TransactionCreatedEventType  = "transaction.created"
-	TransactionCreatedVersion    = 1
-	TransactionCreatedRetryMax   = 5
-	TransactionCreatedRetryDelay = 5 * time.Second
+	TransactionCreatedTopic       = "transaction-history.transaction.created"
+	TransactionCreatedDLQTopic    = "transaction-history.transaction.created.dlq"
+	TransactionCreatedGroupID     = "transaction-history-service"
+	TransactionCreatedEventType   = "transaction.created"
+	TransactionCreatedVersion     = 1
+	TransactionCreatedRetryMax    = 5
+	TransactionCreatedRetryDelay  = 5 * time.Second
 	TransactionCreatedConcurrency = 3
 )
 
 var defaultProducerAllowlist = map[string]struct{}{
 	"ms-agent-payment-purchase": {},
-	"trxFinance":                 {},
-	"ms-liquiditas":              {},
+	"trxFinance":                {},
+	"ms-liquiditas":             {},
 }
 
 type TransactionCreator interface {
@@ -249,7 +249,8 @@ func IsNonRetryable(err error) bool {
 
 	var appErr *coreerrors.AppError
 	if errors.As(err, &appErr) {
-		return appErr.Code == coreerrors.CodeInvalidRequest
+		def, ok := coreerrors.Lookup(appErr.Code)
+		return ok && !def.Retryable && def.Class == coreerrors.ClassFailed
 	}
 	return false
 }
@@ -267,7 +268,7 @@ func classifyError(err error) string {
 	}
 	var appErr *coreerrors.AppError
 	if errors.As(err, &appErr) {
-		return appErr.FormatCode()
+		return appErr.Code
 	}
 	return "retryable_runtime_error"
 }

@@ -1,155 +1,67 @@
-# transaction-history-service
+# Transaction History Service
 
-`transaction-history-service` adalah service penyimpan histori transaksi untuk kebutuhan:
+`transaction-history-service` stores transaction history for application history views, downstream reporting, and controlled fallback/manual ingestion. It is a historical store, not a transaction processor or reporting engine.
 
-- menu riwayat transaksi di aplikasi
-- downstream reporting
-- fallback/manual ingestion ketika jalur utama ingest bermasalah
-- testing insert data pada tahap awal integrasi
+Primary producers include `trxFinance`, `ms-liquiditas`, and the configured agent-payment producer. Core fields such as `reference_id`, `source_service`, `channel`, `product_group`, `product_type`, `transaction_route`, `status_code`, and `transaction_time` remain first-class columns. `metadata_json` is reserved for product-specific JSON objects.
 
-Service ini bukan transaction processor dan bukan reporting engine. Ia berfungsi sebagai historical store terpusat.
+## Runtime
 
-## Sumber Data
+- Go toolchain: `1.26.9`; module directive: `go 1.26.0`.
+- Shared runtime: public `github.com/yogayulanda/go-core` module at `v1.2.1`; no sibling checkout is required.
+- SQL Server database: `transaction_history`.
+- Migration auto-run is configured in `cmd/server/main.go`; migrations run from `migrations/transaction` during startup.
+- Tracing endpoint: `APM_ENDPOINT`. Metrics and diagnostics are configured with `METRICS_ENABLED` and `DIAG_ENABLED`.
+- Kafka is enabled by a non-empty `KAFKA_BROKERS`; `KAFKA_INBOUND_ENABLED` controls this service's inbound consumer.
+- A non-empty `AUTH_SIGNATURE_MASTER_KEY` enables signature validation. Internal JWT remains disabled for this service.
 
-Producer transaksi yang menjadi sumber data utama:
+## Local Setup
 
-- `trxFinance`
-- `ms-liquiditas`
-- `agent-payment-purchase`
-
-## Scope Resmi
-
-Yang termasuk scope:
-
-- menyimpan transaksi baru melalui API internal `CreateTransactionHistory`
-- mengambil daftar riwayat transaksi per user
-- mengambil detail satu transaksi
-- menyediakan data historis yang siap dipakai app dan consumer reporting lain
-
-Yang tidak termasuk scope:
-
-- memproses transaksi finansial
-- menghitung report agregat bisnis di service ini
-- menggantikan jalur event/Kafka utama
-
-## Field Inti
-
-Field inti yang wajib diperlakukan sebagai kolom utama, bukan dipindahkan ke `metadata_json`:
-
-- `reference_id`
-- `source_service`
-- `channel`
-- `product_group`
-- `product_type`
-- `transaction_route`
-- `status_code`
-- `transaction_time`
-
-Catatan penting:
-
-- `reference_id` adalah business transaction id dan harus unik lintas semua producer.
-- `channel` adalah dimensi bisnis penting karena transaksi bisa datang dari lebih dari satu app.
-- `metadata_json` tetap fleksibel, tetapi harus berupa JSON object yang valid dan hanya dipakai untuk atribut spesifik produk.
-
-## Struktur Repo
-
-```text
-cmd/server                 entrypoint service
-internal/app               wiring app service
-internal/handler/grpc      transport layer gRPC/gateway
-internal/service           business validation and orchestration
-internal/repository        persistence layer
-proto/history/v1           proto source
-gen/go/history/v1          generated protobuf/gRPC/gateway code
-migrations/transaction     database migration
-.ai/                       AI workflow, context, task scope
-```
-
-## Setup Lokal
-
-### 1. Siapkan environment
-
-Gunakan `.env.example` sebagai baseline:
+Use `.env.example` as the baseline and configure SQL Server connection values for `transaction_history`. Migration settings are code-configured, not environment variables.
 
 ```bash
 cp .env.example .env
-```
-
-Konfigurasi utama yang perlu diisi:
-
-- SQL Server untuk database `transaction_history`
-- `GRPC_PORT`
-- `HTTP_PORT`
-- `MIGRATION_AUTO_RUN` bila ingin migration jalan saat startup
-- pengaturan auth/security sesuai kebutuhan (`INTERNAL_JWT_*`, `AUTH_SIGNATURE_*`, `HTTP_PPROF_ENABLED`)
-
-### 2. Jalankan migration
-
-Migration utama ada di `migrations/transaction`.
-
-- `0001_init_transaction_history.up.sql` berisi baseline schema
-- `0002_seed_transaction_history.up.sql` no-op agar production baseline bersih
-- `migrations/dev/dev_seed_transaction_history.sql` dipakai hanya untuk local/manual seed
-
-### 3. Generate protobuf
-
-```bash
-make proto
-```
-
-Kebutuhan tool lokal:
-
-- `protoc`
-- `protoc-gen-go`
-- `protoc-gen-go-grpc`
-- `protoc-gen-grpc-gateway`
-
-### 4. Jalankan test
-
-```bash
-make test
-```
-
-### 5. Jalankan service
-
-```bash
 make run
 ```
 
-## API Ringkas
+The service exposes gRPC and HTTP gateway APIs. The HTTP routes are:
 
-API utama service:
+- `GET /v1/history`
+- `GET /v1/history/{id}`
+- `POST /v1/transaction-histories` for internal fallback/manual ingestion
 
-- `CreateTransactionHistory`
-- `GetUserHistory`
-- `GetTransactionHistoryDetail`
+The go-core gateway also provides `GET /health`, `/ready`, `/version`, and `/metrics`.
 
-HTTP gateway dari `go-core` juga tersedia:
+HTTP JSON responses use the go-core v1.2.1 envelope: `status`, `response_code`, `message`, `request_id`, `timestamp`, `data`, and (for `CORE-1000`) `details`. The examples in [docs/api.md](docs/api.md), [docs/openapi.yaml](docs/openapi.yaml), and the Postman collection are derived from go-core v1.2.1 code and are pending smoke verification against a running service and SQL Server.
 
-- `GET /health`
-- `GET /ready`
-- `GET /version`
-- `GET /metrics`
+## Error Model
 
-## Catatan Kontrak Runtime
+Service response codes are registered through `go-core/errors`. Active rows in `transaction_error_definitions` provide message overrides through the go-core message-provider interface; `details_json` remains in the database schema but is not applied. Field validation uses `CORE-1000` and carries field-level `details`.
 
-- `CreateTransactionHistory` dipertahankan sebagai fallback/manual ingestion path dan jalur testing insert.
-- `GetUserHistory` menggunakan cursor offset placeholder (`nextCursor` berupa string angka offset).
-- Saat `startDate` dan `endDate` diisi, handler memvalidasi `startDate <= endDate`.
-- `GetUserHistory` mendukung filter status transaksi melalui field gRPC `status_code` dan query HTTP `statusCode`.
-- Nilai status yang valid: `CREATED`, `PENDING`, `PROCESSING`, `SUCCESS`, `FAILED`, `REVERSED`, `EXPIRED`.
-- `status_code` adalah nama field kontrak gRPC untuk transaction status filter; nilai `UNSPECIFIED` berarti tanpa filter status.
-- Validasi field wajib business untuk create terjadi di service layer (termasuk `channel`, `sourceService`, `currency`, `statusCode`, dll).
+| Code | HTTP | Meaning |
+|---|---:|---|
+| `CORE-1000` | 400 | Invalid request with optional field details. |
+| `TRH-VAL-002` | 400 | Duplicate transaction reference. |
+| `TRH-DB-001` | 404 | Transaction history not found. |
+| `TRH-REC-001` | 500 | Non-recoverable service error. |
+| `CORE-9000` | 500 | Fallback for unknown errors. |
 
-## Error, Auth, dan Security
+## Developer Commands
 
-- Error service dibentuk sebagai `go-core/errors.AppError` dan dipetakan oleh handler via `coreerrors.ToGRPC`.
-- Response error ke client disanitasi oleh kontrak error `go-core`.
-- JWT enforcement dan signature middleware dikontrol oleh konfigurasi `go-core`, bukan middleware custom di service ini.
+```bash
+make test       # race-enabled test suite
+make vet
+make lint       # golangci-lint v2.14.0
+make vuln       # govulncheck
+make fmt-check
+make check      # formatting, vet, tests, lint, and vulnerability scan
+```
 
-## Known Limitations
+Regenerate protobuf output with `make proto` only when the proto source or generator versions change. Required tools are `protoc`, `protoc-gen-go`, `protoc-gen-go-grpc`, and `protoc-gen-grpc-gateway`.
 
-- pagination list masih placeholder
-- lifecycle status update di luar create flow belum lengkap
-- report agregat tetap menjadi tanggung jawab downstream consumer/job/service lain
-- generated protobuf perlu diregenerate bila `proto/` berubah
+## Contract Notes
+
+- `GetUserHistory` uses an offset-based cursor placeholder and validates the date range when both dates are provided.
+- The HTTP `statusCode` query maps to the gRPC `status_code` field; `UNSPECIFIED` means no status filter.
+- Valid transaction statuses are `CREATED`, `PENDING`, `PROCESSING`, `SUCCESS`, `FAILED`, `REVERSED`, and `EXPIRED`.
+- Kafka non-retryable events are dead-lettered; ordinary repository/runtime failures remain retryable.
+- Lifecycle status updates and aggregate reporting are outside this service's current scope.

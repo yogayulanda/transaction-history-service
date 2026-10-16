@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -20,15 +21,24 @@ type kafkaInboundConfig struct {
 	RetryDelay  time.Duration
 }
 
-func loadKafkaInboundConfig() kafkaInboundConfig {
+func loadKafkaInboundConfig() (kafkaInboundConfig, error) {
+	var enabled bool
+	if raw := strings.TrimSpace(os.Getenv("KAFKA_INBOUND_ENABLED")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return kafkaInboundConfig{}, fmt.Errorf("invalid KAFKA_INBOUND_ENABLED: %w", err)
+		}
+		enabled = parsed
+	}
+
 	return kafkaInboundConfig{
-		Enabled:     getEnvBool("KAFKA_INBOUND_ENABLED", false),
+		Enabled:     enabled,
 		Topic:       handlerkafka.TransactionCreatedTopic,
 		GroupID:     handlerkafka.TransactionCreatedGroupID,
 		Concurrency: handlerkafka.TransactionCreatedConcurrency,
 		RetryMax:    handlerkafka.TransactionCreatedRetryMax,
 		RetryDelay:  handlerkafka.TransactionCreatedRetryDelay,
-	}
+	}, nil
 }
 
 type kafkaInboundRunner struct {
@@ -49,16 +59,4 @@ func (r *kafkaInboundRunner) Name() string {
 
 func (r *kafkaInboundRunner) Start() error {
 	return r.consumer.Start(r.ctx)
-}
-
-func getEnvBool(key string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-	parsed, err := strconv.ParseBool(raw)
-	if err != nil {
-		return fallback
-	}
-	return parsed
 }

@@ -33,6 +33,9 @@ func main() {
 	if err != nil {
 		exitWithError("load config", err)
 	}
+	cfg.Migration.AutoRun = true
+	cfg.Migration.DBName = "transaction_history"
+	cfg.Migration.Dir = "migrations/transaction"
 
 	if err := cfg.Validate(); err != nil {
 		exitWithError("validate config", err)

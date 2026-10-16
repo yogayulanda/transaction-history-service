@@ -7,6 +7,7 @@ import (
 
 	coreapp "github.com/yogayulanda/go-core/app"
 	"github.com/yogayulanda/go-core/cache"
+	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/go-core/messaging"
 
@@ -28,6 +29,10 @@ type App struct {
 }
 
 func New(core *coreapp.App) (*App, error) {
+	if err := service.RegisterErrorCodes(); err != nil {
+		return nil, fmt.Errorf("register service error codes: %w", err)
+	}
+
 	// Primary store for transaction history.
 	sqlDB := core.SQLByName("transaction_history")
 	if sqlDB == nil {
@@ -61,11 +66,10 @@ func New(core *coreapp.App) (*App, error) {
 		publisher = pub
 	}
 
-	var log logger.Logger = core.Logger()
+	log := core.Logger()
 
 	txRepo := repository.NewTransactionRepository(gormDB, sqlDB.DB, log)
 
-	var errorResolver service.ErrorDefinitionResolver
 	if errDefRepo, ok := txRepo.(domain.ErrorDefinitionRepository); ok {
 		resolver := service.NewDBErrorDefinitionResolver(errDefRepo, log)
 		if err := resolver.Load(context.Background()); err != nil {
@@ -78,6 +82,7 @@ func New(core *coreapp.App) (*App, error) {
 				},
 			})
 		}
+		coreerrors.SetMessageProvider(resolver)
 
 		refreshCtx, cancelRefresh := context.WithCancel(context.Background())
 		resolver.StartAutoRefresh(refreshCtx, 60*time.Second)
@@ -86,7 +91,6 @@ func New(core *coreapp.App) (*App, error) {
 			return nil
 		})
 
-		errorResolver = resolver
 	}
 
 	txService := service.NewTransactionService(
@@ -94,7 +98,6 @@ func New(core *coreapp.App) (*App, error) {
 		cacheClient,
 		publisher,
 		log,
-		errorResolver,
 	)
 
 	historyHandler := handlergrpc.NewHistoryHandler(txService)
@@ -115,7 +118,10 @@ func buildKafkaInbound(
 	publisher messaging.Publisher,
 	log logger.Logger,
 ) (*kafkaInboundRunner, error) {
-	inboundCfg := loadKafkaInboundConfig()
+	inboundCfg, err := loadKafkaInboundConfig()
+	if err != nil {
+		return nil, err
+	}
 	if !inboundCfg.Enabled {
 		return nil, nil
 	}

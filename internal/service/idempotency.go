@@ -27,15 +27,15 @@ func (s *TransactionService) CreateTransactionHistoryIdempotent(
 		return id, false, nil
 	}
 	if !errors.Is(err, gorm.ErrDuplicatedKey) {
-		return "", false, NewInternalError("failed to create transaction history", err, s.errorResolver)
+		return "", false, NewInternalError("failed to create transaction history", err)
 	}
 
 	existing, lookupErr := s.repo.FindByReferenceID(ctx, normalized.ReferenceID)
 	if lookupErr != nil {
-		return "", false, NewInternalError("failed to resolve duplicate transaction history", lookupErr, s.errorResolver)
+		return "", false, NewInternalError("failed to resolve duplicate transaction history", lookupErr)
 	}
 	if existing == nil {
-		return "", false, NewInternalError("failed to resolve duplicate transaction history", domain.ErrTransactionNotFound, s.errorResolver)
+		return "", false, NewInternalError("failed to resolve duplicate transaction history", domain.ErrTransactionNotFound)
 	}
 	if !equivalentTransactionHistory(normalized, *existing) {
 		return "", false, ErrConflictingDuplicateReference

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/go-core/messaging"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
@@ -18,6 +19,34 @@ type stubCreator struct {
 	id    string
 	noOp  bool
 	err   error
+}
+
+func TestIsNonRetryable_UsesRegisteredErrorDefinition(t *testing.T) {
+	registry := coreerrors.SnapshotRegistry()
+	t.Cleanup(func() { coreerrors.RestoreRegistry(registry) })
+	if err := service.RegisterErrorCodes(); err != nil {
+		t.Fatalf("register service error codes: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "duplicate reference", err: coreerrors.New(service.CodeDuplicateReferenceID, "duplicate"), want: true},
+		{name: "transaction not found", err: coreerrors.New(service.CodeTransactionNotFound, "not found"), want: true},
+		{name: "internal error", err: coreerrors.New(service.CodeInternal, "internal"), want: false},
+		{name: "core validation", err: coreerrors.Validation("invalid"), want: true},
+		{name: "unregistered code", err: coreerrors.New("TRH-UNK-001", "unknown"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsNonRetryable(tt.err); got != tt.want {
+				t.Fatalf("IsNonRetryable() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func (s *stubCreator) CreateTransactionHistoryIdempotent(

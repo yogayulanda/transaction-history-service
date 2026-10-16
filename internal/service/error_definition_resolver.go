@@ -2,33 +2,22 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"sync"
 	"time"
 
-	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 )
 
 const defaultErrorDefinitionRefreshInterval = 60 * time.Second
 
-type ErrorDefinitionResolver interface {
-	Resolve(code string) (string, []coreerrors.Detail, bool)
-}
-
-type resolvedErrorDefinition struct {
-	userMessage string
-	details     []coreerrors.Detail
-}
-
 type DBErrorDefinitionResolver struct {
 	repo domain.ErrorDefinitionRepository
 	log  logger.Logger
 
 	mu          sync.RWMutex
-	definitions map[string]resolvedErrorDefinition
+	definitions map[string]string
 }
 
 func NewDBErrorDefinitionResolver(
@@ -38,7 +27,7 @@ func NewDBErrorDefinitionResolver(
 	return &DBErrorDefinitionResolver{
 		repo:        repo,
 		log:         log,
-		definitions: make(map[string]resolvedErrorDefinition),
+		definitions: make(map[string]string),
 	}
 }
 
@@ -66,25 +55,16 @@ func (r *DBErrorDefinitionResolver) StartAutoRefresh(ctx context.Context, interv
 	}()
 }
 
-func (r *DBErrorDefinitionResolver) Resolve(code string) (string, []coreerrors.Detail, bool) {
+func (r *DBErrorDefinitionResolver) Message(_ context.Context, code string) (string, bool) {
 	normalizedCode := strings.ToUpper(strings.TrimSpace(code))
 	if normalizedCode == "" {
-		return "", nil, false
+		return "", false
 	}
 
 	r.mu.RLock()
-	definition, ok := r.definitions[normalizedCode]
+	message, ok := r.definitions[normalizedCode]
 	r.mu.RUnlock()
-	if !ok {
-		r.emitServiceLog(context.Background(), "error_definition_miss", "failed", "not_found", map[string]interface{}{
-			"error_code": normalizedCode,
-		})
-		return "", nil, false
-	}
-
-	details := make([]coreerrors.Detail, len(definition.details))
-	copy(details, definition.details)
-	return definition.userMessage, details, true
+	return message, ok && message != ""
 }
 
 func (r *DBErrorDefinitionResolver) loadWithOperation(ctx context.Context, operation string) error {
@@ -100,24 +80,13 @@ func (r *DBErrorDefinitionResolver) loadWithOperation(ctx context.Context, opera
 		return err
 	}
 
-	next := make(map[string]resolvedErrorDefinition, len(rows))
-	malformedCount := 0
+	next := make(map[string]string, len(rows))
 	for _, row := range rows {
 		code := strings.ToUpper(strings.TrimSpace(row.ErrorCode))
 		if code == "" {
 			continue
 		}
-
-		details, parseErr := parseDefinitionDetails(row.DetailsJSON)
-		if parseErr != nil {
-			malformedCount++
-			details = nil
-		}
-
-		next[code] = resolvedErrorDefinition{
-			userMessage: strings.TrimSpace(row.UserMessage),
-			details:     details,
-		}
+		next[code] = strings.TrimSpace(row.UserMessage)
 	}
 
 	r.mu.Lock()
@@ -126,40 +95,9 @@ func (r *DBErrorDefinitionResolver) loadWithOperation(ctx context.Context, opera
 
 	r.emitServiceLog(ctx, operation, "success", "", map[string]interface{}{
 		"definition_count": len(next),
-		"malformed_count":  malformedCount,
 	})
 
 	return nil
-}
-
-func parseDefinitionDetails(raw string) ([]coreerrors.Detail, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, nil
-	}
-
-	var parsed []coreerrors.Detail
-	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
-		return nil, err
-	}
-
-	if len(parsed) == 0 {
-		return nil, nil
-	}
-
-	out := make([]coreerrors.Detail, 0, len(parsed))
-	for _, detail := range parsed {
-		field := strings.TrimSpace(detail.Field)
-		reason := strings.TrimSpace(detail.Reason)
-		if field == "" && reason == "" {
-			continue
-		}
-		out = append(out, coreerrors.Detail{Field: field, Reason: reason})
-	}
-	if len(out) == 0 {
-		return nil, nil
-	}
-	return out, nil
 }
 
 func (r *DBErrorDefinitionResolver) emitServiceLog(

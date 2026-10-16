@@ -14,6 +14,15 @@ import (
 	"gorm.io/gorm"
 )
 
+func registerServiceErrors(t *testing.T) {
+	t.Helper()
+	registry := coreerrors.SnapshotRegistry()
+	t.Cleanup(func() { coreerrors.RestoreRegistry(registry) })
+	if err := service.RegisterErrorCodes(); err != nil {
+		t.Fatalf("register service error codes: %v", err)
+	}
+}
+
 type stubRepository struct {
 	createFn func(ctx context.Context, in domain.CreateTransactionHistoryInput) (string, error)
 	detailFn func(ctx context.Context, id string) (*domain.TransactionHistoryDetail, error)
@@ -47,7 +56,7 @@ func (s stubRepository) ListByUser(ctx context.Context, filter domain.ListUserHi
 
 func TestCreateTransactionHistory_ReturnsInvalidArgumentForBusinessValidation(t *testing.T) {
 	handler := &Handler{
-		service: service.NewTransactionService(stubRepository{}, nil, nil, nil, nil),
+		service: service.NewTransactionService(stubRepository{}, nil, nil, nil),
 	}
 
 	_, err := handler.CreateTransactionHistory(context.Background(), &historyv1.CreateTransactionHistoryRequest{
@@ -68,25 +77,26 @@ func TestCreateTransactionHistory_ReturnsInvalidArgumentForBusinessValidation(t 
 	}
 
 	// Verify ErrorInfo contains go-core reason code and service taxonomy metadata.
-	appCode, domain, category, number, _, isCore := coreerrors.ErrorInfoFromGRPC(err)
-	if !isCore {
+	info, ok := coreerrors.InfoFromGRPC(err)
+	if !ok {
 		t.Fatal("expected go-core error info")
 	}
-	if appCode != coreerrors.CodeInvalidRequest {
-		t.Fatalf("expected INVALID_REQUEST reason, got %s", appCode)
+	if info.Code != "CORE-1000" {
+		t.Fatalf("expected CORE-1000 reason, got %s", info.Code)
 	}
-	if domain != "TRH" || category != "VAL" || number != "001" {
-		t.Fatalf("unexpected taxonomy metadata: domain=%s category=%s number=%s", domain, category, number)
+	if got := status.Convert(err).Message(); got != "invalid request" {
+		t.Fatalf("unexpected validation message %q", got)
 	}
 }
 
 func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
+	registerServiceErrors(t)
 	handler := &Handler{
 		service: service.NewTransactionService(stubRepository{
 			createFn: func(context.Context, domain.CreateTransactionHistoryInput) (string, error) {
 				return "", gorm.ErrDuplicatedKey
 			},
-		}, nil, nil, nil, nil),
+		}, nil, nil, nil),
 	}
 
 	_, err := handler.CreateTransactionHistory(context.Background(), &historyv1.CreateTransactionHistoryRequest{
@@ -110,7 +120,7 @@ func TestCreateTransactionHistory_MapsDuplicateReferenceID(t *testing.T) {
 
 func TestGetUserHistory_RejectsInvalidDateRange(t *testing.T) {
 	handler := &Handler{
-		service: service.NewTransactionService(stubRepository{}, nil, nil, nil, nil),
+		service: service.NewTransactionService(stubRepository{}, nil, nil, nil),
 	}
 
 	_, err := handler.GetUserHistory(context.Background(), &historyv1.GetUserHistoryRequest{
@@ -144,7 +154,7 @@ func TestGetUserHistory_UsesStatusCodeFilterWhenProvided(t *testing.T) {
 					},
 				}, false, nil
 			},
-		}, nil, nil, nil, nil),
+		}, nil, nil, nil),
 	}
 
 	resp, err := handler.GetUserHistory(context.Background(), &historyv1.GetUserHistoryRequest{
@@ -171,7 +181,7 @@ func TestGetUserHistory_LeavesStatusFilterEmptyWhenUnspecified(t *testing.T) {
 				gotFilter = filter
 				return nil, false, nil
 			},
-		}, nil, nil, nil, nil),
+		}, nil, nil, nil),
 	}
 
 	_, err := handler.GetUserHistory(context.Background(), &historyv1.GetUserHistoryRequest{
@@ -187,7 +197,7 @@ func TestGetUserHistory_LeavesStatusFilterEmptyWhenUnspecified(t *testing.T) {
 
 func TestGetTransactionHistoryDetail_RequiresID(t *testing.T) {
 	handler := &Handler{
-		service: service.NewTransactionService(stubRepository{}, nil, nil, nil, nil),
+		service: service.NewTransactionService(stubRepository{}, nil, nil, nil),
 	}
 
 	_, err := handler.GetTransactionHistoryDetail(context.Background(), &historyv1.GetTransactionHistoryDetailRequest{})
@@ -200,12 +210,13 @@ func TestGetTransactionHistoryDetail_RequiresID(t *testing.T) {
 }
 
 func TestGetTransactionHistoryDetail_MapsNotFound(t *testing.T) {
+	registerServiceErrors(t)
 	handler := &Handler{
 		service: service.NewTransactionService(stubRepository{
 			detailFn: func(_ context.Context, _ string) (*domain.TransactionHistoryDetail, error) {
 				return nil, domain.ErrTransactionNotFound
 			},
-		}, nil, nil, nil, nil),
+		}, nil, nil, nil),
 	}
 
 	_, err := handler.GetTransactionHistoryDetail(context.Background(), &historyv1.GetTransactionHistoryDetailRequest{
