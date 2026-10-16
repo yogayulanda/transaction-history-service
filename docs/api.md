@@ -1,238 +1,80 @@
 # Transaction History API
 
-Service exposes gRPC and HTTP/REST via grpc-gateway.
+Base URL: `http://localhost:8080`
 
-## Base URL
+All customer calls require authentication. The service derives the owner from the authenticated claims (`Subject` and `app_name` attribute); do not send owner identity in customer requests. HTTP responses use the shared envelope with `status`, `response_code`, `message`, `request_id`, `timestamp`, and `data`.
 
-`http://localhost:8080/v1`
+## List Transactions
 
-The HTTP envelope examples below are derived from the go-core v1.2.1 gateway implementation and are pending smoke verification against a running service and SQL Server.
+`GET /v1/transactions`
 
----
+| Query | Type | Meaning |
+|---|---|---|
+| `startDate` | `YYYY-MM-DD` | Inclusive start day in Asia/Jakarta. |
+| `endDate` | `YYYY-MM-DD` | Inclusive end day in Asia/Jakarta. |
+| `productCategory` | string | `transfer`, `ppob`, or `cico`. |
+| `productType` | string | Product type filter. |
+| `status` | string | Current status filter. |
+| `cursor` | string | Opaque cursor returned by the previous page. |
+| `pageSize` | integer | Defaults to 20; maximum 50. |
 
-## 1. Get User History
+If both dates are omitted, the range is the latest 30 calendar days through today. The maximum range is 92 days. The end day is inclusive and is queried through the following Jakarta midnight. Invalid dates, reversed ranges, or invalid cursors return `CORE-1000`.
 
-Retrieve paginated transaction history for a user.
-
-**Endpoint:** `GET /history`
-
-### Query Parameters
-
-| Field | Type | Required | Description | Example |
-|---|---|---|---|---|
-| `userId` | `string` | Yes | End user identifier. | `usr_123` |
-| `startDate` | `string` | No | Inclusive start date (RFC3339). | `2026-02-01T00:00:00Z` |
-| `endDate` | `string` | No | Inclusive end date (RFC3339). | `2026-02-29T23:59:59Z` |
-| `productGroup` | `string` | No | Product group filter. | `transfer` |
-| `productType` | `string` | No | Product type filter. | `transfer_internal` |
-| `transactionRoute` | `string` | No | Processing route filter. | `internal` |
-| `statusCode` | `string` | No | Lifecycle status code enum. | `TRANSACTION_STATUS_CODE_SUCCESS` |
-| `cursor` | `string` | No | Offset cursor as non-negative integer string. | `20` |
-| `pageSize` | `integer` | No | Requested page size (default 20, max 100). | `10` |
-
-Validation notes:
-- `startDate` and `endDate` must be valid RFC3339.
-- If both are provided, `startDate` must be before or equal to `endDate`.
-
-### Response Example
+Example response:
 
 ```json
 {
   "status": "SUCCESS",
   "response_code": "CORE-0000",
   "message": "success",
-  "request_id": "req-123",
-  "timestamp": "2026-04-10T12:00:00.000Z",
+  "request_id": "req-sample-01",
+  "timestamp": "2026-10-16T12:00:00Z",
   "data": {
-    "items": [
-      {
-        "id": "123e4567-e89b-12d3-a456-426614174000",
-        "userId": "usr_123",
-        "referenceId": "ref_abc123",
-        "externalRefId": "ext_ref_456",
-        "productGroup": "transfer",
-        "productType": "transfer_internal",
-        "transactionRoute": "internal",
-        "channel": "mobile_app",
-        "direction": "debit",
-        "amount": "100000",
-        "fee": "0",
-        "totalAmount": "100000",
-        "currency": "IDR",
-        "statusCode": "TRANSACTION_STATUS_CODE_SUCCESS",
-        "errorCode": "",
-        "errorMessage": "",
-        "sourceService": "trxFinance",
-        "transactionTime": "2026-04-10T12:00:00Z"
-      }
-    ],
-    "nextCursor": "10",
-    "hasMore": true
-  }
-}
-```
-
----
-
-## 2. Get Transaction History Detail
-
-Retrieve detail by transaction ID.
-
-**Endpoint:** `GET /history/{id}`
-
-### Path Parameters
-
-| Field | Type | Required | Description | Example |
-|---|---|---|---|---|
-| `id` | `string` | Yes | Immutable transaction ID (UUID/ULID). | `123e4567-e89b-12d3-a456-426614174000` |
-
-### Response Example
-
-```json
-{
-  "status": "SUCCESS",
-  "response_code": "CORE-0000",
-  "message": "success",
-  "request_id": "req-123",
-  "timestamp": "2026-04-10T12:00:00.000Z",
-  "data": {
-    "data": {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "userId": "usr_123",
-      "referenceId": "ref_abc123",
-      "externalRefId": "ext_ref_456",
-      "productGroup": "transfer",
+    "items": [{
+      "transactionId": "tx-sample-001",
+      "productCategory": "transfer",
       "productType": "transfer_internal",
-      "transactionRoute": "internal",
-      "channel": "mobile_app",
+      "provider": "bca",
+      "providerName": "BCA",
       "direction": "debit",
-      "amount": "100000",
-      "fee": "0",
-      "totalAmount": "100000",
+      "amount": "125000.00",
+      "feeAmount": "2500.00",
+      "totalAmount": "127500.00",
       "currency": "IDR",
-      "statusCode": "TRANSACTION_STATUS_CODE_SUCCESS",
-      "errorCode": "",
-      "errorMessage": "",
-      "sourceService": "trxFinance",
-      "transactionTime": "2026-04-10T12:00:00Z",
-      "metadataJson": "{\"beneficiary_account\":\"1234567890\"}",
-      "createdAt": "2026-04-10T12:00:00.123Z",
-      "updatedAt": "2026-04-10T12:00:00.123Z"
-    }
+      "status": "SUCCESS",
+      "statusLabel": "Berhasil",
+      "destinationNoMasked": "****4321",
+      "transactionAt": "2026-10-16T04:30:00Z"
+    }],
+    "nextCursor": "eyJ0cmFuc2FjdGlvbl9hdCI6Ii4uLiIsImlkIjoidHgtc2FtcGxlLTAwMSJ9"
   }
 }
 ```
 
----
+Money values are decimal strings. Customer responses never include the partner, owner identity, raw destination, or source account number.
 
-## 3. Create Transaction History
+## Get Transaction
 
-Internal fallback/manual ingestion endpoint.
+`GET /v1/transactions/{transaction_id}`
 
-**Endpoint:** `POST /transaction-histories`
+The transaction is returned only when it belongs to the authenticated owner. An unknown ID and another owner's ID return the same `CORE-1004` response. The detail includes masked account values, status history, and one typed detail object for the product type.
 
-### Request Body
+## Backoffice Search
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `userId` | `string` | Yes | End user identifier. |
-| `referenceId` | `string` | Yes | Business reference ID; must be unique. |
-| `externalRefId` | `string` | No | Optional provider/core-banking reference ID. |
-| `productGroup` | `string` | Yes | Top-level product group. |
-| `productType` | `string` | Yes | Product/use-case type. |
-| `transactionRoute` | `string` | No | Processing route. |
-| `channel` | `string` | Yes | Origin channel. |
-| `direction` | `string` | Yes | Direction (`debit` or `credit`). |
-| `amount` | `string(int64)` | Yes | Amount in minor unit. |
-| `fee` | `string(int64)` | No | Fee in minor unit. |
-| `totalAmount` | `string(int64)` | Yes | Total amount in minor unit. |
-| `currency` | `string` | Yes | ISO currency code (3 letters). |
-| `statusCode` | `string` | Yes | Lifecycle status code enum. |
-| `errorCode` | `string` | No | Optional integration error code. |
-| `errorMessage` | `string` | No | Optional integration error message. |
-| `sourceService` | `string` | Yes | Upstream source service name. |
-| `transactionTime` | `string(date-time)` | No | Business transaction time; defaults to server UTC when omitted. |
-| `metadataJson` | `string` | No | Optional JSON object payload as string. |
+`HistoryBackofficeService.SearchTransactions` is gRPC-only and is not exposed through HTTP. Claims must include role `HISTORY_BACKOFFICE_ROLE` (default `backoffice`). Search supports transaction ID, reference number, destination number plus type, or app plus user; at least one criterion is required. Date bounds use the same Jakarta calendar-day rules. Results are capped at 100 per page.
 
-Validation notes:
-- `metadataJson` must be a valid JSON object when provided.
-- `amount`, `fee`, and `totalAmount` must be non-negative.
+Destination values are normalized and HMAC-hashed before querying. Audit events record criterion names, result count, and at most the first eight hash characters; they never include the submitted destination number.
 
-### Response Example
+## Statuses and Errors
 
-```json
-{
-  "status": "SUCCESS",
-  "response_code": "CORE-0000",
-  "message": "success",
-  "request_id": "req-123",
-  "timestamp": "2026-04-10T12:00:00.000Z",
-  "data": {
-    "id": "123e4567-e89b-12d3-a456-426614174000"
-  }
-}
-```
+Statuses: `PENDING`, `UNKNOWN`, `SUCCESS`, `FAILED`, `NEED_REVIEW`, `REFUNDED`.
 
----
-
-## Error and Security Notes
-
-- Service error responses are sanitized through `go-core/errors` mapping (`coreerrors.ToGRPC`).
-- Error envelopes contain `status`, `response_code`, `message`, `request_id`, and `timestamp`; `details` is included for `CORE-1000` field violations.
-- Envelope examples below are derived from go-core v1.2.1 code and remain pending smoke verification.
-- JWT verification mode and signature middleware are controlled by go-core runtime config.
-
-### Error Codes
-
-| `response_code` | HTTP | Meaning |
+| Code | HTTP | Meaning |
 |---|---:|---|
-| `CORE-1000` | 400 | Invalid request; includes field-level `details` when available. |
-| `TRH-VAL-002` | 400 | A transaction with this reference was already processed. |
-| `TRH-DB-001` | 404 | Transaction history was not found; message comes from the active DB definition when available. |
-| `TRH-REC-001` | 500 | Non-recoverable service error. |
-| `CORE-9000` | 500 | Fallback for unregistered or unknown errors. |
+| `CORE-1000` | 400 | Invalid request. |
+| `CORE-1001` | 401 | Authentication required. |
+| `CORE-1003` | 403 | Caller is not authorized. |
+| `CORE-1004` | 404 | Transaction not found for this owner. |
+| `CORE-9000` | 500 | Internal service error. |
 
-### Error Examples
-
-Not found:
-
-```json
-{
-  "status": "FAILED",
-  "response_code": "TRH-DB-001",
-  "message": "Riwayat transaksi tidak ditemukan.",
-  "request_id": "req-123",
-  "timestamp": "2026-04-10T12:00:00.000Z"
-}
-```
-
-Invalid input:
-
-```json
-{
-  "status": "FAILED",
-  "response_code": "CORE-1000",
-  "message": "Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.",
-  "request_id": "req-123",
-  "timestamp": "2026-04-10T12:00:00.000Z",
-  "details": [
-    {
-      "field": "user_id",
-      "reason": "is required"
-    }
-  ]
-}
-```
-
-## Reference: Status Codes
-
-| Value | Description |
-|---|---|
-| `TRANSACTION_STATUS_CODE_UNSPECIFIED` | Default fallback. |
-| `TRANSACTION_STATUS_CODE_CREATED` | Just created, before processing. |
-| `TRANSACTION_STATUS_CODE_PENDING` | Waiting downstream callback/processing. |
-| `TRANSACTION_STATUS_CODE_PROCESSING` | Actively processing. |
-| `TRANSACTION_STATUS_CODE_SUCCESS` | Completed successfully. |
-| `TRANSACTION_STATUS_CODE_FAILED` | Failed synchronously/asynchronously. |
-| `TRANSACTION_STATUS_CODE_REVERSED` | Processed then reversed/voided. |
-| `TRANSACTION_STATUS_CODE_EXPIRED` | Expired before completion. |
+User-facing messages and status labels may be overridden by active message-provider rows; code defaults remain available.

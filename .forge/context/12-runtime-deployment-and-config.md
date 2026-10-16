@@ -5,43 +5,36 @@ type: system
 system_type: service
 status: confirmed
 confidence: high
-source: ai
+source: hybrid
 evidence:
   - { type: code, ref: cmd/server/main.go }
   - { type: code, ref: .env.example }
-  - { type: code, ref: Makefile }
+  - { type: code, ref: internal/app/kafka_inbound.go }
   - { type: doc, ref: README.md }
 owner: unresolved
-updated: 2026-10-15
+updated: 2026-10-16
 ---
 
 # Runtime Deployment and Config
 
-## Startup Sequence
-- Load `.env`
-- Set migration auto-run, database name, and directory in code
-- Validate config
-- Auto-run migrations from `migrations/transaction`
-- Build `go-core` app
-- Build service app wiring
-- Start gRPC server and HTTP gateway
-- Start Kafka inbound only when enabled and available
+## Startup
+- Load `.env`, configure migrations, validate shared config, run migrations, create go-core app, construct service handlers, register gRPC services, and start gRPC/HTTP plus optional Kafka.
+- HTTP gateway calls the local gRPC endpoint with insecure transport credentials; production transport assumptions require deployment validation.
+- Outside `APP_ENV=local`, default claims identity requires internal JWT enabled.
 
-## Core Config Surface
-- Service identity: `SERVICE_NAME=transaction-history-service`
-- Ports: `GRPC_PORT`, `HTTP_PORT`
-- SQL Server connection: `DB_TRANSACTION_HISTORY_*`
-- Observability: `APM_ENDPOINT`, `METRICS_ENABLED`, `DIAG_ENABLED`, `HTTP_PPROF_ENABLED`
-- Signature validation: a non-empty `AUTH_SIGNATURE_MASTER_KEY`; internal JWT remains disabled.
-- Kafka: non-empty `KAFKA_BROKERS` enables Kafka; `KAFKA_INBOUND_ENABLED` controls inbound consumption and malformed non-empty values fail startup.
-- Runtime versions: Go `1.26.9` toolchain, module directive `1.26.0`, public `go-core v1.2.1`.
+## Core Configuration
+- Service/group identity: `SERVICE_NAME`.
+- SQL Server: `DB_LIST=transaction_history` and `DB_TRANSACTION_HISTORY_*`.
+- Ports: `GRPC_PORT`, `HTTP_PORT`.
+- Inbound: `KAFKA_INBOUND_ENABLED`, `HISTORY_STATUS_TOPIC`, `HISTORY_ALLOWED_SOURCES`.
+- Catalog: `HISTORY_ALLOWED_APPS` (default `app_a,app_b`).
+- HMAC: `HISTORY_HASH_KEY` hex-encodes at least 32 bytes; required by app startup.
+- Backoffice: `HISTORY_BACKOFFICE_ROLE` (default `backoffice`).
+- go-core runtime: v`1.2.1`; Go toolchain `1.26.9`, directive `1.26.0`.
 
 ## Developer Commands
-- `make proto` / `make generate`
-- `make test` (race-enabled)
-- `make vet`, `make lint`, `make vuln`, `make fmt-check`, `make check`
-- `make run`
+- `make generate`, `make test`, `make vet`, `make lint`, `make vuln`, `make fmt-check`, `make check`, `make run`.
 
 ## Deployment Unknowns
-- This repo does not include deployment manifests, CI/CD pipelines, or environment-specific topology docs.
-- SQL Server migration and HTTP smoke checks are pre-deploy gates; see `99-open-questions.md`.
+- This repository has no deployment manifests, environment topology, or rollback procedure.
+- Live SQL Server, Kafka, and production authentication configuration still require pre-deploy verification.

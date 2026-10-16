@@ -2,445 +2,254 @@ openapi: 3.0.3
 info:
   title: Transaction History Service
   description: >-
-    API endpoints for the Transaction History Service. Envelope schemas and examples are derived from go-core v1.2.1 gateway code and are pending smoke verification against a running service and SQL Server.
+    Customer transaction-history HTTP API. Support search is available through a
+    separate gRPC-only service and is not exposed by this OpenAPI document.
   version: 1.0.0
 servers:
   - url: http://localhost:8080
     description: Local development server
+security:
+  - bearerAuth: []
 paths:
-  /v1/history:
+  /v1/transactions:
     get:
-      summary: Get User History
-      description: Returns a paginated list of transaction history for a user.
-      operationId: GetUserHistory
+      operationId: ListTransactions
+      summary: List the authenticated customer's transactions
       parameters:
-        - name: userId
-          in: query
-          description: End user identifier.
-          required: false
-          schema:
-            type: string
         - name: startDate
           in: query
-          description: Inclusive start date in ISO8601 format. Example - "2026-02-01T00:00:00Z".
-          required: false
+          description: Inclusive calendar date in Asia/Jakarta, YYYY-MM-DD.
           schema:
             type: string
-            format: date-time
+            format: date
         - name: endDate
           in: query
-          description: Inclusive end date in ISO8601 format. Example - "2026-02-29T23:59:59Z".
-          required: false
+          description: Inclusive calendar date in Asia/Jakarta, YYYY-MM-DD.
           schema:
             type: string
-            format: date-time
-        - name: productGroup
+            format: date
+        - name: productCategory
           in: query
-          description: Top-level product grouping for reporting/filtering.
-          required: false
           schema:
             type: string
+            enum: [transfer, ppob, cico]
         - name: productType
           in: query
-          description: Specific product/use-case under product_group.
-          required: false
           schema:
             type: string
-        - name: transactionRoute
+        - name: status
           in: query
-          description: Backend route used to process transaction.
-          required: false
           schema:
             type: string
-        - name: statusCode
-          in: query
-          description: Current lifecycle status code.
-          required: false
-          schema:
-            $ref: '#/components/schemas/TransactionStatusCode'
+            enum: [PENDING, UNKNOWN, SUCCESS, FAILED, NEED_REVIEW, REFUNDED]
         - name: cursor
           in: query
-          description: Pagination cursor from previous response.
-          required: false
+          description: Opaque cursor returned by the preceding page.
           schema:
             type: string
         - name: pageSize
           in: query
-          description: Requested page size. Server should clamp to max 100.
-          required: false
           schema:
             type: integer
-            format: int32
+            default: 20
+            minimum: 1
+            maximum: 50
       responses:
         '200':
-          description: A successful response.
+          description: Transaction page.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetUserHistoryHTTPResponse'
+                $ref: '#/components/schemas/ListTransactionsEnvelope'
         '400':
-          description: Invalid request (`CORE-1000`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GatewayErrorEnvelope'
-              examples:
-                validationError:
-                  $ref: '#/components/examples/CoreValidationError'
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
         '500':
-          description: Internal error (`TRH-REC-001` or `CORE-9000`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GatewayErrorEnvelope'
-  /v1/history/{id}:
+          $ref: '#/components/responses/InternalError'
+  /v1/transactions/{transaction_id}:
     get:
-      summary: Get Transaction History Detail
-      description: Returns the details of a specific transaction history record.
-      operationId: GetTransactionHistoryDetail
+      operationId: GetTransaction
+      summary: Get one transaction for the authenticated customer
       parameters:
-        - name: id
+        - name: transaction_id
           in: path
-          description: Internal immutable transaction ID (UUID/ULID).
           required: true
           schema:
             type: string
+            maxLength: 64
       responses:
         '200':
-          description: A successful response.
+          description: Transaction detail.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetTransactionHistoryDetailHTTPResponse'
+                $ref: '#/components/schemas/GetTransactionEnvelope'
         '400':
-          description: Invalid request (`CORE-1000`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GatewayErrorEnvelope'
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
         '404':
-          description: Transaction history was not found (`TRH-DB-001`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GatewayErrorEnvelope'
-              examples:
-                transactionNotFound:
-                  $ref: '#/components/examples/TransactionNotFoundError'
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal error (`TRH-REC-001` or `CORE-9000`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GatewayErrorEnvelope'
-  /v1/transaction-histories:
-    post:
-      summary: Create Transaction History
-      description: Creates a new transaction history record for ingestion.
-      operationId: CreateTransactionHistory
-      requestBody:
-        description: Request payload to create a transaction history.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTransactionHistoryRequest'
-      responses:
-        '200':
-          description: A successful response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CreateTransactionHistoryHTTPResponse'
-        '400':
-          description: Invalid request (`CORE-1000`) or duplicate reference (`TRH-VAL-002`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GatewayErrorEnvelope'
-        '500':
-          description: Internal error (`TRH-REC-001` or `CORE-9000`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GatewayErrorEnvelope'
+          $ref: '#/components/responses/InternalError'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
-    GatewayResponseMetadata:
+    EnvelopeMetadata:
       type: object
-      required:
-        - status
-        - response_code
-        - message
-        - request_id
-        - timestamp
+      required: [status, response_code, message, request_id, timestamp]
       properties:
         status:
           type: string
           enum: [SUCCESS, FAILED, ERROR, PENDING]
-        response_code:
-          type: string
-          description: Registered go-core response code.
-        message:
-          type: string
-        request_id:
-          type: string
-        timestamp:
-          type: string
-          format: date-time
-    GatewaySuccessEnvelope:
+        response_code: { type: string }
+        message: { type: string }
+        request_id: { type: string }
+        timestamp: { type: string, format: date-time }
+    ErrorEnvelope:
       allOf:
-        - $ref: '#/components/schemas/GatewayResponseMetadata'
-        - type: object
-          required: [data]
-          properties:
-            data:
-              type: object
-              description: Serialized grpc-gateway response payload.
-    GatewayErrorEnvelope:
-      allOf:
-        - $ref: '#/components/schemas/GatewayResponseMetadata'
+        - $ref: '#/components/schemas/EnvelopeMetadata'
         - type: object
           properties:
             details:
               type: array
-              description: Present for CORE-1000 field violations.
-              items:
-                $ref: '#/components/schemas/ErrorDetail'
+              items: { $ref: '#/components/schemas/ErrorDetail' }
     ErrorDetail:
       type: object
       required: [field, reason]
       properties:
-        field:
-          type: string
-        reason:
-          type: string
-    GetUserHistoryHTTPResponse:
-      allOf:
-        - $ref: '#/components/schemas/GatewaySuccessEnvelope'
-        - type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/GetUserHistoryResponse'
-    GetTransactionHistoryDetailHTTPResponse:
-      allOf:
-        - $ref: '#/components/schemas/GatewaySuccessEnvelope'
-        - type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/GetTransactionHistoryDetailResponse'
-    CreateTransactionHistoryHTTPResponse:
-      allOf:
-        - $ref: '#/components/schemas/GatewaySuccessEnvelope'
-        - type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/CreateTransactionHistoryResponse'
-    TransactionStatusCode:
-      type: string
-      enum:
-        - TRANSACTION_STATUS_CODE_UNSPECIFIED
-        - TRANSACTION_STATUS_CODE_CREATED
-        - TRANSACTION_STATUS_CODE_PENDING
-        - TRANSACTION_STATUS_CODE_PROCESSING
-        - TRANSACTION_STATUS_CODE_SUCCESS
-        - TRANSACTION_STATUS_CODE_FAILED
-        - TRANSACTION_STATUS_CODE_REVERSED
-        - TRANSACTION_STATUS_CODE_EXPIRED
-      default: TRANSACTION_STATUS_CODE_UNSPECIFIED
-    TransactionHistory:
+        field: { type: string }
+        reason: { type: string }
+    TransactionSummary:
+      type: object
+      required: [transactionId, productCategory, productType, provider, direction, amount, feeAmount, totalAmount, currency, status, statusLabel, transactionAt]
+      properties:
+        transactionId: { type: string }
+        productCategory: { type: string }
+        productType: { type: string }
+        provider: { type: string }
+        providerName: { type: string }
+        direction: { type: string, enum: [debit, credit] }
+        denomination: { type: string }
+        amount: { type: string, pattern: '^\d{1,16}(\.\d{1,2})?$' }
+        feeAmount: { type: string, pattern: '^\d{1,16}(\.\d{1,2})?$' }
+        totalAmount: { type: string, pattern: '^\d{1,16}(\.\d{1,2})?$' }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        status: { type: string, enum: [PENDING, UNKNOWN, SUCCESS, FAILED, NEED_REVIEW, REFUNDED] }
+        statusLabel: { type: string }
+        destinationName: { type: string }
+        destinationNoMasked: { type: string }
+        transactionAt: { type: string, format: date-time }
+    TransactionStatusHistory:
       type: object
       properties:
-        id:
-          type: string
-          description: Internal immutable transaction ID (UUID/ULID).
-        userId:
-          type: string
-          description: End user identifier.
-        referenceId:
-          type: string
-          description: Idempotency/business reference ID from caller system.
-        externalRefId:
-          type: string
-          description: Optional provider/core-banking reference ID.
-        productGroup:
-          type: string
-          description: Top-level product grouping.
-        productType:
-          type: string
-          description: Product/use-case.
-        transactionRoute:
-          type: string
-          description: Processing route in backend.
-        channel:
-          type: string
-          description: Origin channel of request.
-        direction:
-          type: string
-          description: Financial direction from account perspective.
-        amount:
-          type: string
-          format: int64
-          description: Monetary values stored in minor unit (e.g. cents).
-        fee:
-          type: string
-          format: int64
-        totalAmount:
-          type: string
-          format: int64
-        currency:
-          type: string
-          description: ISO currency code. Example - "IDR".
-        statusCode:
-          $ref: '#/components/schemas/TransactionStatusCode'
-        errorCode:
-          type: string
-          description: Optional business/integration error code.
-        errorMessage:
-          type: string
-          description: Optional business/integration error description.
-        sourceService:
-          type: string
-          description: Upstream source service name.
-        transactionTime:
-          type: string
-          format: date-time
-          description: Business transaction time.
-    TransactionHistoryDetail:
+        toStatus: { type: string }
+        statusLabel: { type: string }
+        changedAt: { type: string, format: date-time }
+    TransactionDetail:
+      allOf:
+        - $ref: '#/components/schemas/TransactionSummary'
+        - type: object
+          properties:
+            responseCode: { type: string }
+            sourceAccountMasked: { type: string }
+            referenceNo: { type: string }
+            completedAt: { type: string, format: date-time, nullable: true }
+            statusHistory:
+              type: array
+              items: { $ref: '#/components/schemas/TransactionStatusHistory' }
+            detail:
+              oneOf:
+                - { $ref: '#/components/schemas/TransferDetail' }
+                - { $ref: '#/components/schemas/PulsaDetail' }
+                - { $ref: '#/components/schemas/DataPackageDetail' }
+                - { $ref: '#/components/schemas/PlnPrepaidDetail' }
+                - { $ref: '#/components/schemas/PlnPostpaidDetail' }
+                - { $ref: '#/components/schemas/BpjsKesehatanDetail' }
+                - { $ref: '#/components/schemas/CicoDetail' }
+              nullable: true
+    TransferDetail:
       type: object
       properties:
-        id:
-          type: string
-        userId:
-          type: string
-        referenceId:
-          type: string
-        externalRefId:
-          type: string
-        productGroup:
-          type: string
-        productType:
-          type: string
-        transactionRoute:
-          type: string
-        channel:
-          type: string
-        direction:
-          type: string
-        amount:
-          type: string
-          format: int64
-        fee:
-          type: string
-          format: int64
-        totalAmount:
-          type: string
-          format: int64
-        currency:
-          type: string
-        statusCode:
-          $ref: '#/components/schemas/TransactionStatusCode'
-        errorCode:
-          type: string
-        errorMessage:
-          type: string
-        sourceService:
-          type: string
-        transactionTime:
-          type: string
-          format: date-time
-        metadataJson:
-          type: string
-          description: Product-specific payload.
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-    GetUserHistoryResponse:
+        bankCode: { type: string }
+        note: { type: string }
+    PulsaDetail:
+      type: object
+      properties:
+        serialNumber: { type: string }
+    DataPackageDetail:
+      type: object
+      properties:
+        productName: { type: string }
+        serialNumber: { type: string }
+    PlnPrepaidDetail:
+      type: object
+      properties:
+        token: { type: string }
+        kwh: { type: string }
+        tariffPower: { type: string }
+    PlnPostpaidDetail:
+      type: object
+      properties:
+        period: { type: string }
+        standMeter: { type: string }
+    BpjsKesehatanDetail:
+      type: object
+      properties:
+        periodMonths: { type: integer, minimum: 1, maximum: 24 }
+        participantCount: { type: integer, minimum: 1, maximum: 50 }
+        branch: { type: string }
+    CicoDetail:
+      type: object
+      properties:
+        codeMasked: { type: string }
+        warkatNo: { type: string }
+    ListTransactionsResponse:
       type: object
       properties:
         items:
           type: array
-          items:
-            $ref: '#/components/schemas/TransactionHistory'
-        nextCursor:
-          type: string
-        hasMore:
-          type: boolean
-    GetTransactionHistoryDetailResponse:
+          items: { $ref: '#/components/schemas/TransactionSummary' }
+        nextCursor: { type: string }
+    GetTransactionResponse:
       type: object
       properties:
-        data:
-          $ref: '#/components/schemas/TransactionHistoryDetail'
-    CreateTransactionHistoryRequest:
-      type: object
-      properties:
-        userId:
-          type: string
-        referenceId:
-          type: string
-        externalRefId:
-          type: string
-        productGroup:
-          type: string
-        productType:
-          type: string
-        transactionRoute:
-          type: string
-        channel:
-          type: string
-        direction:
-          type: string
-        amount:
-          type: string
-          format: int64
-        fee:
-          type: string
-          format: int64
-        totalAmount:
-          type: string
-          format: int64
-        currency:
-          type: string
-        statusCode:
-          $ref: '#/components/schemas/TransactionStatusCode'
-        errorCode:
-          type: string
-        errorMessage:
-          type: string
-        sourceService:
-          type: string
-        transactionTime:
-          type: string
-          format: date-time
-        metadataJson:
-          type: string
-    CreateTransactionHistoryResponse:
-      type: object
-      properties:
-        id:
-          type: string
-  examples:
-    CoreValidationError:
-      summary: CORE-1000 validation error
-      description: Derived from go-core v1.2.1 code; pending smoke verification.
-      value:
-        status: FAILED
-        response_code: CORE-1000
-        message: Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.
-        request_id: req-123
-        timestamp: '2026-04-10T12:00:00.000Z'
-        details:
-          - field: user_id
-            reason: is required
-    TransactionNotFoundError:
-      summary: TRH-DB-001 not found
-      description: Derived from go-core v1.2.1 code; pending smoke verification.
-      value:
-        status: FAILED
-        response_code: TRH-DB-001
-        message: Riwayat transaksi tidak ditemukan.
-        request_id: req-123
-        timestamp: '2026-04-10T12:00:00.000Z'
+        transaction: { $ref: '#/components/schemas/TransactionDetail' }
+    ListTransactionsEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeMetadata'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/ListTransactionsResponse' }
+    GetTransactionEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeMetadata'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/GetTransactionResponse' }
+  responses:
+    InvalidRequest:
+      description: Invalid request (`CORE-1000`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthenticated:
+      description: Authentication required (`CORE-1001`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Transaction not found for this owner (`CORE-1004`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    InternalError:
+      description: Internal service error (`CORE-9000`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }

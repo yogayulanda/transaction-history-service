@@ -3,33 +3,38 @@ id: knowledge.operations-runbook
 title: Operations and Runbook
 type: knowledge
 status: confirmed
-confidence: medium
-source: ai
+confidence: high
+source: hybrid
 evidence:
   - { type: code, ref: cmd/server/main.go }
   - { type: code, ref: internal/app/app.go }
-  - { type: code, ref: internal/handler/kafka/transaction_created.go }
+  - { type: code, ref: internal/handler/kafka/status_event.go }
   - { type: doc, ref: README.md }
 owner: unresolved
-updated: 2026-10-15
+updated: 2026-10-16
 ---
 
 # Operations and Runbook
 
-## Useful Runtime Checks
-- If startup exits early, first check config validation, SQL Server connectivity, and migration execution because each aborts the process.
-- If Kafka inbound is expected but absent, check both `KAFKA_INBOUND_ENABLED` and the underlying `go-core` Kafka enablement/config because inbound creation requires a publisher.
-- If user-facing error text looks stale, check whether `transaction_error_definitions` is populated and whether message-provider load or refresh logs show failures.
+## Startup Checks
+- If startup exits early, check shared config validation, SQL Server connectivity, migration execution, and the HMAC key configuration.
+- When Kafka inbound is enabled, verify `HISTORY_STATUS_TOPIC`, `HISTORY_ALLOWED_SOURCES`, Kafka publisher setup, and valid `SERVICE_NAME`.
+- Outside local environment, verify internal JWT is enabled when using the default claims resolver.
+- If user-facing messages or status labels look stale, check `transaction_error_definitions` load/refresh logs.
 
-## Message Recovery Notes
-- Non-retryable Kafka events should land on `transaction-history.transaction.created.dlq`.
-- Service-level non-retryable DLQ messages include `x-original-topic` and `x-error-code`; consumer retry-exhaustion DLQ messages include `x-dlq-reason` and `x-original-topic`.
-- If DLQ publish fails, the handler returns a retryable error and the original message should be retried by the consumer runtime.
-- Before first deployment, verify migrations 0001-0004 and the HTTP error envelope against SQL Server; see `99-open-questions.md`.
+## Message Recovery
+- Invalid status events are published to `<HISTORY_STATUS_TOPIC>.dlq` with `x-dlq-reason`.
+- Database errors and failed DLQ publishes remain retryable; failed DLQ publication does not acknowledge the input.
+- Original DLQ payloads are retained for replay and must never be logged; log only `event_id`, `ce_type`, and a stable reason.
+- For the internal fork (I-A), deploy the `.dlq` topic with the source topic's ACL, TLS, and retention controls.
+- Inspect stable reason/error codes only; raw identifiers, PLN tokens, and notes are not logged.
 
-## Data Recovery Notes
-- Local/manual seed data exists under `migrations/dev/dev_seed_transaction_history.sql`.
-- No repository-local reconciliation job or manual backfill tooling was found beyond the fallback create API and optional Kafka ingest.
+## Data and API Recovery
+- Validate migrations 0001-0005 against SQL Server, including lock hints, unique conflict behavior, and rollback order.
+- Smoke customer list/detail through HTTP and gRPC; verify owner isolation, auth errors, request ID, date bounds, and CORE error envelopes.
+- Smoke backoffice search through gRPC only; verify role enforcement and audit records contain no raw destination values.
+- Local/manual sample data lives in `migrations/dev/dev_seed_transaction_history.sql`.
+- `internal/backfill` is a framework only; this public repository has no source adapter or backfill command.
 
 ## Escalation Gaps
-- No documented on-call ownership, incident escalation path, or production rollback procedure is present in this repo.
+- Production ownership, escalation path, and rollback procedure are not documented in this repository.

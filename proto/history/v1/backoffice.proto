@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package history.v1;
+
+import "history/v1/history.proto";
+
+option go_package = "github.com/yogayulanda/transaction-history-service/gen/go/history/v1;historyv1";
+
+service HistoryBackofficeService {
+  rpc SearchTransactions(SearchTransactionsRequest) returns (SearchTransactionsResponse);
+}
+
+message SearchTransactionsRequest {
+  string transaction_id = 1;
+  string reference_no = 2;
+  string destination_no = 3;
+  string destination_no_type = 4;
+  string app_name = 5;
+  string user_id = 6;
+  string start_date = 7;
+  string end_date = 8;
+  string cursor = 9;
+  int32 page_size = 10;
+}
+
+message SearchTransactionsResponse {
+  repeated BackofficeTransactionSummary items = 1;
+  string next_cursor = 2;
+}
+
+message BackofficeTransactionSummary {
+  TransactionSummary transaction = 1;
+  string app_name = 2;
+  string user_id = 3;
+  string partner = 4;
+  string reference_no = 5;
+  string response_code = 6;
+}

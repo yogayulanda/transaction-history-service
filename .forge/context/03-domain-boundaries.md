@@ -5,30 +5,31 @@ type: system
 system_type: service
 status: confirmed
 confidence: high
-source: ai
+source: hybrid
 evidence:
-  - { type: doc, ref: README.md }
   - { type: code, ref: internal/domain/transaction.go }
-  - { type: code, ref: internal/handler/kafka/transaction_created.go }
+  - { type: code, ref: internal/handler/kafka/status_event.go }
+  - { type: doc, ref: README.md }
 owner: unresolved
-updated: 2026-07-06
+updated: 2026-10-16
 ---
 
 # Domain Boundaries
 
-## Owned by This Service
-- Canonical storage of transaction-history records and product-specific metadata.
-- Read APIs for user history and transaction-history detail.
-- Fallback/manual ingestion path for new history records.
-- Service-local error definition lookup used to shape user-facing messages for this service's error taxonomy.
+## Owned
+- Transaction snapshot, product-specific detail, and append-only status history.
+- Validation and ordering of incoming status snapshots.
+- Owner-scoped customer list/detail and role-gated support search.
+- Insert-only backfill primitives for source adapters supplied by a fork.
+- Masking and hashing of sensitive account identifiers before persistence.
 
-## Explicitly Not Owned
-- Financial transaction execution or settlement.
-- Aggregate business reporting logic.
-- Upstream source-of-truth validation for producer systems beyond input validation and allowlist checks.
-- Authentication/signature implementation details, which are delegated to `go-core` runtime configuration.
+## Not Owned
+- Transaction execution, settlement, or financial calculations.
+- Producer-system source-of-truth validation beyond this service's catalog and payload rules.
+- A public backfill command or producer-specific legacy adapter.
 
-## Boundary Conditions
-- `reference_id` is treated as a globally unique business identifier across producers.
-- `source_service` and `channel` are persisted as first-class business dimensions.
-- Kafka ingestion is restricted to a hardcoded producer allowlist in code.
+## Boundary Rules
+- Customer identity is derived from authenticated claims, never customer request fields.
+- Producer source names are supplied through configuration; public examples use fictional values.
+- Money is carried as decimal strings and is not recalculated by this service.
+- Backoffice search is gRPC-only and audited.

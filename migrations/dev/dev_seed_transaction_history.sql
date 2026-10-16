@@ -1,78 +1,88 @@
 INSERT INTO dbo.transaction_histories (
     id,
+    app_name,
     user_id,
-    reference_id,
-    external_ref_id,
-    product_group,
+    reference_no,
+    product_category,
     product_type,
-    transaction_route,
-    channel,
+    provider,
+    partner,
     direction,
     amount,
-    fee,
+    fee_amount,
     total_amount,
     currency,
-    status_code,
-    error_code,
-    error_message,
-    source_service,
-    transaction_time,
-    created_at,
-    updated_at
+    status,
+    status_version,
+    response_code,
+    source_account_masked,
+    destination_name,
+    destination_no_type,
+    destination_no_masked,
+    destination_no_hash,
+    source_system,
+    transaction_at,
+    completed_at
 )
 VALUES (
     'seed-tx-001',
+    'app_a',
     'seed-user-001',
     'seed-ref-001',
-    'seed-ext-ref-001',
     'transfer',
     'transfer_internal',
-    'internal',
-    'mobile_app',
+    'bca',
+    NULL,
     'debit',
-    10000,
-    0,
-    10000,
+    NULL,
+    10000.00,
+    0.00,
+    10000.00,
     'IDR',
     'SUCCESS',
+    1,
     NULL,
     NULL,
-    'seed',
-    SYSUTCDATETIME(),
+    '****7890',
+    'Sample recipient',
+    'account',
+    '****1234',
+    REPLICATE('a', 64),
+    'sample-producer',
     SYSUTCDATETIME(),
     SYSUTCDATETIME()
 );
 
 INSERT INTO dbo.transaction_history_details (
     transaction_id,
-    metadata_json,
-    created_at,
-    updated_at
+    schema_version,
+    fields_json
 )
 VALUES (
     'seed-tx-001',
-    '{"note":"seed data for local/manual testing"}',
-    SYSUTCDATETIME(),
-    SYSUTCDATETIME()
+    1,
+    '{"note":"sample transfer"}'
 );
 
 INSERT INTO dbo.transaction_history_status_events (
-    transaction_id,
-    from_status_code,
-    to_status_code,
-    reason_code,
-    reason_message,
-    event_time,
-    raw_payload_json,
-    created_at
+    transaction_history_id,
+    event_id,
+    event_type,
+    status_version,
+    from_status,
+    to_status,
+    response_code,
+    changed_by_type,
+    changed_at
 )
 VALUES (
     'seed-tx-001',
-    'CREATED',
+    '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+    'transaction.status.v1',
+    1,
+    NULL,
     'SUCCESS',
     NULL,
-    NULL,
-    SYSUTCDATETIME(),
-    '{"source":"manual_seed"}',
+    'system',
     SYSUTCDATETIME()
 );

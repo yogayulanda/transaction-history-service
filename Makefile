@@ -5,6 +5,7 @@ GOLANGCI_LINT := $(shell $(GO) env GOPATH)/bin/golangci-lint
 endif
 PROTO_DIR=proto
 GEN_DIR=gen/go
+GOOGLEAPIS_PROTO_DIR=$(shell find "$(shell go env GOMODCACHE)/github.com/grpc-ecosystem" -type d -path '*/third_party/googleapis' -print -quit)
 
 PROTO_FILES=$(shell find $(PROTO_DIR) -name "*.proto")
 
@@ -16,7 +17,7 @@ generate:
 	@command -v protoc >/dev/null 2>&1 || (echo "protoc not found. install protobuf compiler first." && exit 1)
 	protoc \
 		--proto_path=$(PROTO_DIR) \
-		--proto_path=$(GOPATH)/pkg/mod \
+		--proto_path=$(GOOGLEAPIS_PROTO_DIR) \
 		--go_out=$(GEN_DIR) --go_opt=paths=source_relative \
 		--go-grpc_out=$(GEN_DIR) --go-grpc_opt=paths=source_relative \
 		--grpc-gateway_out=$(GEN_DIR) --grpc-gateway_opt=paths=source_relative \

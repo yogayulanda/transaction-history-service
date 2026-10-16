@@ -5,37 +5,36 @@ type: system
 system_type: service
 status: confirmed
 confidence: high
-source: ai
+source: hybrid
 evidence:
   - { type: code, ref: go.mod }
   - { type: code, ref: internal/app/app.go }
-  - { type: code, ref: internal/handler/kafka/transaction_created.go }
+  - { type: code, ref: internal/handler/kafka/status_event.go }
 owner: unresolved
-updated: 2026-10-15
+updated: 2026-10-16
 ---
 
 # Integrations and Dependencies
 
-## Core Runtime Dependency
-- The service depends on the public `github.com/yogayulanda/go-core` module at `v1.2.1`; `go.mod` has no local sibling `replace`.
-- `go-core` provides config loading, app bootstrapping, server startup, gateway/grpc servers, migration execution, logging, cache, DB transaction helpers, and messaging abstractions.
+## Core Runtime
+- Public `github.com/yogayulanda/go-core` v`1.2.1` supplies config, logging, server, migration, auth, and messaging infrastructure.
+- SQL Server is accessed through `database/sql`; event writes use SQL Server lock hints.
+- Kafka consumer and DLQ publisher are created through go-core messaging.
 
-## Infrastructure Dependencies
-- SQL Server via `gorm.io/driver/sqlserver` and `gorm.io/gorm`.
-- Optional Redis cache client exposed by `go-core`; current service logic wires it but does not actively use it.
-- Optional Kafka publisher and consumer via `go-core/messaging`.
+## Kafka Configuration
+- `KAFKA_INBOUND_ENABLED` controls the status consumer.
+- `HISTORY_STATUS_TOPIC` sets the topic; DLQ is topic plus `.dlq`.
+- Consumer group is `SERVICE_NAME`; default concurrency is 3, retry maximum 5, delay 5 seconds.
+- `HISTORY_ALLOWED_SOURCES` is required when enabled.
+- CloudEvents attributes are restored from `ce_*` headers to handler context.
 
-## Messaging Contracts
-- Inbound topic: `transaction-history.transaction.created`
-- DLQ topic: `transaction-history.transaction.created.dlq`
-- Consumer group: `transaction-history-service`
-- Default consumer concurrency: `3`
-- Default retry config: `5` attempts with `5s` retry delay
-- Consumer concurrency is `3`; go-core v1.2.1 assigns each Kafka partition to a deterministic worker and preserves processing/commit order within that partition.
-- Service-level non-retryable events are manually published with `x-original-topic` and `x-error-code` headers.
-- Errors that exhaust consumer retries and are runtime-DLQ-published carry `x-dlq-reason` and `x-original-topic` headers. Failed DLQ publication does not commit the original message and blocks further processing for that partition.
+## Failure Contract
+- Validation failures are manually published to DLQ with `x-dlq-reason`, then acknowledged after publish success.
+- DB and failed-DLQ publish errors remain retryable; runtime DLQ failure does not commit the input.
+- The DLQ retains the original event payload unchanged so it can be replayed after a consumer fix; the payload must never be written to logs.
+- Deployment requirement for the internal fork (I-A): each `<topic>.dlq` must use the source topic's ACL, TLS policy, and retention period.
 
-## Protocol Dependencies
-- gRPC and grpc-gateway v2
-- Google API annotations for HTTP mapping
-- OpenAPI file under `docs/openapi.yaml` as a secondary reference surface
+## Protocols and Tooling
+- Customer API: gRPC and grpc-gateway v2; HTTP gateway dials the local gRPC endpoint.
+- Backoffice API: gRPC only.
+- Proto generation uses `protoc`, Go/gRPC/gateway plugins, and cached Google API proto sources.

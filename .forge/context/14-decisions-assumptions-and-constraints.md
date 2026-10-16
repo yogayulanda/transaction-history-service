@@ -3,37 +3,37 @@ id: knowledge.decisions-assumptions-constraints
 title: Decisions Assumptions and Constraints
 type: knowledge
 status: confirmed
-confidence: medium
-source: ai
+confidence: high
+source: hybrid
 evidence:
-  - { type: doc, ref: README.md }
-  - { type: code, ref: internal/service/idempotency.go }
-  - { type: code, ref: internal/handler/kafka/transaction_created.go }
-  - { type: code, ref: internal/repository/transaction_sql.go }
+  - { type: doc, ref: .forge/generated/ecp/2026-10-16-th-v1-ecp.md }
+  - { type: code, ref: internal/handler/kafka/status_event.go }
+  - { type: code, ref: internal/identity/identity.go }
+  - { type: code, ref: migrations/transaction/0001_init_transaction_history.up.sql }
 owner: unresolved
-updated: 2026-10-15
+updated: 2026-10-16
 ---
 
 # Decisions Assumptions and Constraints
 
 ## Confirmed Decisions
-- D3: Adopt the go-core v1.2.1 HTTP envelope without a compatibility shim or `gateway.Raw`.
-- D4: Register `TRH-VAL-002`, `TRH-DB-001`, and `TRH-REC-001`; active `transaction_error_definitions.user_message` values provide message overrides. `details_json` is retained but unused.
-- D8: The service is not deployed; environment validation and live SQL Server/HTTP smoke checks are required before first deployment.
-- D9: Service field validation uses `CORE-1000`; `TRH-VAL-001` is retired and its existing database row remains unused. Migration 0004 adds the Indonesian CORE-1000 message.
-- D10: A registered `AppError` is Kafka non-retryable only when its definition is `ClassFailed` and not retryable.
-- D11: This service stores transaction history and does not emit go-core transaction logs. Create identity is propagated through the observability field bag; `gtid` is propagated from gRPC/Kafka and is not set by the service.
-- `CreateTransactionHistory` is intentionally retained as a fallback/manual ingestion path.
-- `reference_id` uniqueness is enforced at the database layer and treated as a business idempotency boundary.
-- Kafka inbound duplicate events become no-ops only for equivalent persisted content; conflicting duplicates are rejected.
-- Error message presentation can be overridden from DB-backed active definitions without changing code.
+- Money stays decimal strings through event, domain, and API; SQL uses `DECIMAL(18,2)` and service does no money arithmetic.
+- Public identity resolution uses claims: subject to user ID and `app_name` attribute to app name. Missing identity maps to `CORE-1001`.
+- HTTP gateway calls local gRPC so customer HTTP requests pass through gRPC interceptors.
+- Backoffice is a separate gRPC service, never registered on the gateway, and requires the configured role.
+- Core failure codes are `CORE-1000`, `CORE-1001`, `CORE-1003`, `CORE-1004`, and `CORE-9000`; no service-owned TRH codes remain.
+- Status labels use `STATUS-<STATUS>` message rows with code fallbacks.
+- Producer allowlist, topic, and HMAC key are configuration; public samples are fictional.
+- Destination HMAC is type-prefixed; details are schema-filtered. Transfer notes and PLN prepaid tokens are intentionally persisted unmasked and shown only to the transaction owner; they are never logged.
+- Invalid-event DLQ payloads are intentionally unchanged for replay and never logged. Internal fork I-A must apply the source topic's ACL, TLS, and retention controls to the `.dlq` topic.
+- Raw destination/source numbers and CICO codes are not persisted; raw account/phone/meter/VA values, CICO codes, PLN tokens, and notes are never logged.
+- Status event application is transactionally ordered by sequence; backfill is insert-only at version zero.
 
-## Confirmed Constraints
-- Pagination is offset-based today even though the API uses `cursor` naming.
-- Kafka inbound producer trust is currently a hardcoded name allowlist.
-- `metadata_json` must remain a JSON object, not an arbitrary JSON value.
-- The service requires the `transaction_history` SQL database to be initialized at bootstrap.
+## Constraints
+- Go `1.26.9`, directive `1.26.0`, go-core `v1.2.1`; no new direct dependency was needed.
+- Generated protobuf output must be produced by `make generate`, not hand-edited.
+- Do not stage, commit, push, or publish without explicit request.
 
-## Assumptions Still in Use
-- `go-core` remains the owner of transport-level auth, readiness, metrics, and shared infrastructure behavior.
-- Deployment topology and ownership will be provided from outside this repository when needed.
+## Assumptions
+- go-core remains owner of shared auth, transport, lifecycle, and message-provider behavior.
+- Production topic/source values and deployment topology are supplied outside this public repository.

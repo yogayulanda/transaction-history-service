@@ -5,43 +5,41 @@ type: system
 system_type: service
 status: confirmed
 confidence: high
-source: ai
+source: hybrid
 evidence:
   - { type: code, ref: migrations/transaction/0001_init_transaction_history.up.sql }
-  - { type: code, ref: migrations/transaction/0003_error_definitions.up.sql }
-  - { type: code, ref: internal/repository/transaction_sql.go }
-  - { type: code, ref: .env.example }
+  - { type: code, ref: migrations/transaction/0005_core_messages_and_status_labels.up.sql }
+  - { type: code, ref: internal/repository/history_sql.go }
 owner: unresolved
-updated: 2026-07-06
+updated: 2026-10-16
 ---
 
 # Data and Persistence
 
 ## Primary Store
-- SQL Server database named `transaction_history` configured through `DB_LIST=transaction_history` and `DB_TRANSACTION_HISTORY_*` environment variables.
+- SQL Server database `transaction_history`.
 
-## Main Tables
-- `dbo.transaction_histories`: core transaction row keyed by string `id`.
-- `dbo.transaction_history_details`: one-to-one metadata table keyed by `transaction_id`.
-- `dbo.transaction_history_status_events`: append-only status-event table keyed by identity `id`.
-- `dbo.transaction_error_definitions`: service-owned error presentation lookup table.
+## Tables
+- `dbo.transaction_histories`: snapshot keyed by transaction ID and owned by `(app_name, user_id)`.
+- `dbo.transaction_history_details`: optional schema-versioned JSON detail.
+- `dbo.transaction_history_status_events`: append-only status events.
+- `dbo.transaction_error_definitions`: CORE message and status-label lookup.
 
-## Important Constraints
-- Unique index on `transaction_histories.reference_id`.
-- Check constraints enforce allowed `product_group`, `transaction_route`, `direction`, and `status_code` values.
-- Amount, fee, and total_amount must be non-negative.
-- `transaction_history_details` and `transaction_history_status_events` cascade-delete with the parent history row.
-- Core business fields such as `reference_id`, `source_service`, `channel`, `product_group`, `product_type`, `transaction_route`, `status_code`, and `transaction_time` are modeled as first-class columns; `metadata_json` is stored separately in `transaction_history_details` for extensible product-specific metadata.
+## Constraints and Indexes
+- Money columns use `DECIMAL(18,2)` and non-negative checks; Go/API money stays string-valued.
+- Statuses are `PENDING`, `UNKNOWN`, `SUCCESS`, `FAILED`, `NEED_REVIEW`, `REFUNDED`.
+- Event IDs and transaction/status versions are unique.
+- Customer list index is `(app_name, user_id, transaction_at DESC, id DESC)` with included summary fields.
+- Detail and status-event rows cascade-delete with the transaction.
 
 ## Write Behavior
-- Repository `Create` inserts history, detail, and initial status event in one DB transaction.
-- If `transaction_time` is omitted, repository persists current UTC time.
-- If `metadata_json` is omitted, repository persists `{}`.
+- One SQL transaction covers event-ID deduplication, locked snapshot read, version-based create/update/stale handling, optional detail write, and event append.
+- Destination/source numbers are masked or hashed and CICO codes are masked before repository access.
+- Transfer notes and PLN prepaid tokens are stored unmasked in schema-filtered detail JSON by design and may be returned only in the owning customer's transaction detail response.
+- Account/phone/meter/VA numbers, CICO codes, PLN tokens, and notes must not be logged.
+- Backfill inserts only when transaction ID is absent and uses status version zero.
 
 ## Read Behavior
-- Detail lookup loads the history row first, then detail metadata; missing detail metadata is normalized to `{}`.
-- User-history listing filters by user and optional date/product/route/status fields, sorts by `transaction_time DESC, id DESC`, and fetches `page_size + 1` rows to derive `has_more`.
-
-## Seed and Migration Notes
-- Production migration `0002` is intentionally a no-op.
-- Local/manual seed data lives under `migrations/dev/dev_seed_transaction_history.sql`.
+- Customer reads always filter by both app and user owner.
+- List/search use descending `(transaction_at, id)` keyset paging and fetch one extra record.
+- Destination search queries a type-prefixed HMAC hash, not the raw number.

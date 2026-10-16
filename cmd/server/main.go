@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -21,6 +22,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/yogayulanda/go-core/logger"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -55,6 +57,9 @@ func main() {
 		core.Logger().Error(ctx, "service bootstrap failed", logger.Field{Key: "error", Value: err.Error()})
 		os.Exit(1)
 	}
+	if cfg.App.Environment != "local" && svcApp.UsesDefaultResolver && !cfg.Auth.InternalJWT.Enabled {
+		exitWithError("validate identity configuration", errors.New("default claims resolver requires internal JWT outside local environment"))
+	}
 
 	grpcServer, err := coregrpc.New(core)
 	if err != nil {
@@ -67,15 +72,17 @@ func main() {
 			s,
 			svcApp.HistoryHandler,
 		)
+		historyv1.RegisterHistoryBackofficeServiceServer(s, svcApp.BackofficeHandler)
 	})
 
 	gatewayServer, err := coregateway.New(
 		core,
 		func(ctx context.Context, mux *runtime.ServeMux) error {
-			return historyv1.RegisterHistoryServiceHandlerServer(
+			return historyv1.RegisterHistoryServiceHandlerFromEndpoint(
 				ctx,
 				mux,
-				svcApp.HistoryHandler,
+				fmt.Sprintf("localhost:%d", cfg.GRPC.Port),
+				[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
 			)
 		},
 	)
@@ -85,7 +92,7 @@ func main() {
 	}
 
 	httpEndpoints, grpcMethods := coreserver.DescribeFromProto(
-		historyv1.File_proto_history_v1_history_proto,
+		historyv1.File_history_v1_history_proto,
 		true,
 	)
 

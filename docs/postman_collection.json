@@ -1,197 +1,88 @@
 {
   "info": {
     "name": "Transaction History Service API",
-    "description": "API endpoints for the Go Transaction History Service. Response envelopes are derived from go-core v1.2.1 gateway code and are pending smoke verification against a running service and SQL Server.",
+    "description": "Authenticated customer history endpoints. Backoffice search is gRPC-only.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
   },
   "item": [
     {
-      "name": "Get User History",
+      "name": "List Transactions",
       "request": {
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/v1/history?userId=usr_123&pageSize=10",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "v1",
-            "history"
-          ],
+          "raw": "{{base_url}}/v1/transactions?pageSize=20",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "transactions"],
           "query": [
-            {
-              "key": "userId",
-              "value": "usr_123"
-            },
-            {
-              "key": "startDate",
-              "value": "2026-02-01T00:00:00Z",
-              "disabled": true
-            },
-            {
-              "key": "endDate",
-              "value": "2026-02-29T23:59:59Z",
-              "disabled": true
-            },
-            {
-              "key": "productGroup",
-              "value": "transfer",
-              "disabled": true
-            },
-            {
-              "key": "productType",
-              "value": "transfer_internal",
-              "disabled": true
-            },
-            {
-              "key": "transactionRoute",
-              "value": "internal",
-              "disabled": true
-            },
-            {
-              "key": "statusCode",
-              "value": "TRANSACTION_STATUS_CODE_SUCCESS",
-              "disabled": true
-            },
-            {
-              "key": "cursor",
-              "value": "",
-              "disabled": true
-            },
-            {
-              "key": "pageSize",
-              "value": "10"
-            }
+            { "key": "startDate", "value": "2026-10-01", "disabled": true },
+            { "key": "endDate", "value": "2026-10-16", "disabled": true },
+            { "key": "productCategory", "value": "transfer", "disabled": true },
+            { "key": "productType", "value": "transfer_internal", "disabled": true },
+            { "key": "status", "value": "SUCCESS", "disabled": true },
+            { "key": "cursor", "value": "", "disabled": true },
+            { "key": "pageSize", "value": "20" }
           ]
         }
       },
       "response": [
         {
-          "name": "200 success envelope (derived; pending smoke verification)",
+          "name": "200 success",
+          "originalRequest": { "method": "GET", "url": "{{base_url}}/v1/transactions?pageSize=20" },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{"key": "Content-Type", "value": "application/json"}],
-          "body": "{\n  \"status\": \"SUCCESS\",\n  \"response_code\": \"CORE-0000\",\n  \"message\": \"success\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"data\": {\n    \"items\": [],\n    \"nextCursor\": \"\",\n    \"hasMore\": false\n  }\n}"
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"status\": \"SUCCESS\",\n  \"response_code\": \"CORE-0000\",\n  \"message\": \"success\",\n  \"request_id\": \"req-sample-01\",\n  \"timestamp\": \"2026-10-16T12:00:00Z\",\n  \"data\": {\n    \"items\": [{\n      \"transactionId\": \"tx-sample-001\",\n      \"productCategory\": \"transfer\",\n      \"productType\": \"transfer_internal\",\n      \"provider\": \"bca\",\n      \"providerName\": \"BCA\",\n      \"direction\": \"debit\",\n      \"amount\": \"125000.00\",\n      \"feeAmount\": \"2500.00\",\n      \"totalAmount\": \"127500.00\",\n      \"currency\": \"IDR\",\n      \"status\": \"SUCCESS\",\n      \"statusLabel\": \"Berhasil\",\n      \"destinationNoMasked\": \"****4321\",\n      \"transactionAt\": \"2026-10-16T04:30:00Z\"\n    }],\n    \"nextCursor\": \"\"\n  }\n}"
         },
         {
-          "name": "400 CORE-1000 validation error (derived; pending smoke verification)",
-          "status": "Bad Request",
-          "code": 400,
+          "name": "401 authentication required",
+          "status": "Unauthorized",
+          "code": 401,
           "_postman_previewlanguage": "json",
-          "header": [{"key": "Content-Type", "value": "application/json"}],
-          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"CORE-1000\",\n  \"message\": \"Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"details\": [{\"field\": \"user_id\", \"reason\": \"is required\"}]\n}"
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"CORE-1001\",\n  \"message\": \"Sesi Anda telah berakhir. Silakan masuk kembali.\",\n  \"request_id\": \"req-sample-02\",\n  \"timestamp\": \"2026-10-16T12:00:00Z\"\n}"
         }
       ]
     },
     {
-      "name": "Get Transaction History Detail",
+      "name": "Get Transaction",
       "request": {
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/v1/history/:id",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "v1",
-            "history",
-            ":id"
-          ],
-          "variable": [
-            {
-              "key": "id",
-              "value": "txn_123"
-            }
-          ]
+          "raw": "{{base_url}}/v1/transactions/:transaction_id",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "transactions", ":transaction_id"],
+          "variable": [{ "key": "transaction_id", "value": "tx-sample-001" }]
         }
       },
       "response": [
         {
-          "name": "200 success envelope (derived; pending smoke verification)",
+          "name": "200 success",
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
-          "header": [{"key": "Content-Type", "value": "application/json"}],
-          "body": "{\n  \"status\": \"SUCCESS\",\n  \"response_code\": \"CORE-0000\",\n  \"message\": \"success\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"data\": {\n    \"data\": {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n      \"userId\": \"usr_123\",\n      \"referenceId\": \"ref_abc123\"\n    }\n  }\n}"
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"status\": \"SUCCESS\",\n  \"response_code\": \"CORE-0000\",\n  \"message\": \"success\",\n  \"request_id\": \"req-sample-03\",\n  \"timestamp\": \"2026-10-16T12:00:00Z\",\n  \"data\": {\n    \"transaction\": {\n      \"transactionId\": \"tx-sample-001\",\n      \"productCategory\": \"transfer\",\n      \"productType\": \"transfer_internal\",\n      \"provider\": \"bca\",\n      \"providerName\": \"BCA\",\n      \"direction\": \"debit\",\n      \"amount\": \"125000.00\",\n      \"feeAmount\": \"2500.00\",\n      \"totalAmount\": \"127500.00\",\n      \"currency\": \"IDR\",\n      \"status\": \"SUCCESS\",\n      \"statusLabel\": \"Berhasil\",\n      \"destinationNoMasked\": \"****4321\",\n      \"transactionAt\": \"2026-10-16T04:30:00Z\",\n      \"statusHistory\": [{\"toStatus\":\"SUCCESS\",\"statusLabel\":\"Berhasil\",\"changedAt\":\"2026-10-16T04:30:03Z\"}],\n      \"transfer\": {\"bankCode\":\"014\",\"note\":\"Sample transfer\"}\n    }\n  }\n}"
         },
         {
-          "name": "404 TRH-DB-001 not found (derived; pending smoke verification)",
+          "name": "404 not found for this owner",
           "status": "Not Found",
           "code": 404,
           "_postman_previewlanguage": "json",
-          "header": [{"key": "Content-Type", "value": "application/json"}],
-          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"TRH-DB-001\",\n  \"message\": \"Riwayat transaksi tidak ditemukan.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\"\n}"
-        },
-        {
-          "name": "400 CORE-1000 validation error (derived; pending smoke verification)",
-          "status": "Bad Request",
-          "code": 400,
-          "_postman_previewlanguage": "json",
-          "header": [{"key": "Content-Type", "value": "application/json"}],
-          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"CORE-1000\",\n  \"message\": \"Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"details\": [{\"field\": \"id\", \"reason\": \"required\"}]\n}"
-        }
-      ]
-    },
-    {
-      "name": "Create Transaction History",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"userId\": \"usr_123\",\n  \"referenceId\": \"ref_abc123\",\n  \"externalRefId\": \"ext_ref_456\",\n  \"productGroup\": \"transfer\",\n  \"productType\": \"transfer_internal\",\n  \"transactionRoute\": \"internal\",\n  \"channel\": \"mobile_app\",\n  \"direction\": \"debit\",\n  \"amount\": 100000,\n  \"fee\": 0,\n  \"totalAmount\": 100000,\n  \"currency\": \"IDR\",\n  \"statusCode\": \"TRANSACTION_STATUS_CODE_SUCCESS\",\n  \"errorCode\": \"\",\n  \"errorMessage\": \"\",\n  \"sourceService\": \"transfer_service\",\n  \"transactionTime\": \"2026-04-10T12:00:00Z\",\n  \"metadataJson\": \"{\\\"beneficiary_account\\\": \\\"1234567890\\\"}\"\n}"
-        },
-        "url": {
-          "raw": "{{base_url}}/v1/transaction-histories",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "v1",
-            "transaction-histories"
-          ]
-        }
-      },
-      "response": [
-        {
-          "name": "200 success envelope (derived; pending smoke verification)",
-          "status": "OK",
-          "code": 200,
-          "_postman_previewlanguage": "json",
-          "header": [{"key": "Content-Type", "value": "application/json"}],
-          "body": "{\n  \"status\": \"SUCCESS\",\n  \"response_code\": \"CORE-0000\",\n  \"message\": \"success\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174000\"\n  }\n}"
-        },
-        {
-          "name": "400 CORE-1000 validation error (derived; pending smoke verification)",
-          "status": "Bad Request",
-          "code": 400,
-          "_postman_previewlanguage": "json",
-          "header": [{"key": "Content-Type", "value": "application/json"}],
-          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"CORE-1000\",\n  \"message\": \"Permintaan tidak valid, silakan periksa kembali data yang dimasukkan.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\",\n  \"details\": [{\"field\": \"user_id\", \"reason\": \"is required\"}]\n}"
-        },
-        {
-          "name": "400 TRH-VAL-002 duplicate reference (derived; pending smoke verification)",
-          "status": "Bad Request",
-          "code": 400,
-          "_postman_previewlanguage": "json",
-          "header": [{"key": "Content-Type", "value": "application/json"}],
-          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"TRH-VAL-002\",\n  \"message\": \"Transaksi dengan referensi ini sudah pernah diproses.\",\n  \"request_id\": \"req-123\",\n  \"timestamp\": \"2026-04-10T12:00:00.000Z\"\n}"
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"status\": \"FAILED\",\n  \"response_code\": \"CORE-1004\",\n  \"message\": \"Riwayat transaksi tidak ditemukan.\",\n  \"request_id\": \"req-sample-04\",\n  \"timestamp\": \"2026-10-16T12:00:00Z\"\n}"
         }
       ]
     }
   ],
   "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:8080"
-    }
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "access_token", "value": "" }
   ]
 }
