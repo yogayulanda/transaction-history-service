@@ -26,6 +26,9 @@ func main() {
 	cfg.Migration.AutoRun = true
 	cfg.Migration.DBName = "transaction_history"
 	cfg.Migration.Dir = "migrations/transaction"
+	if err := serviceapp.ConfigureInternalJWT(cfg); err != nil {
+		exitWithError("configure internal JWT", err)
+	}
 	if err := cfg.Validate(); err != nil {
 		exitWithError("validate config", err)
 	}
