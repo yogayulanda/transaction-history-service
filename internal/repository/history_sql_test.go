@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -118,11 +119,11 @@ func TestUniqueIndexErrorRequiresSQLServerUniqueNumberAndIndexName(t *testing.T)
 		indexName string
 		want      bool
 	}{
-		{name: "matching duplicate index", err: &mssql.Error{Number: 2601, Message: "duplicate UX_thse_event_id"}, indexName: "UX_thse_event_id", want: true},
-		{name: "matching constraint duplicate", err: &mssql.Error{Number: 2627, Message: "duplicate UX_thse_status_version"}, indexName: "UX_thse_status_version", want: true},
+		{name: "event ID duplicate value", err: mssql.Error{Number: 2601, Message: "Cannot insert duplicate key row with unique index 'UX_thse_event_id'."}, indexName: "UX_thse_event_id", want: true},
+		{name: "wrapped status version duplicate value", err: fmt.Errorf("insert event: %w", mssql.Error{Number: 2627, Message: "Cannot insert duplicate key row with unique index 'UX_thse_status_version'."}), indexName: "UX_thse_status_version", want: true},
 		{name: "generic text is not enough", err: errors.New("duplicate UX_thse_event_id"), indexName: "UX_thse_event_id"},
-		{name: "wrong SQL error number", err: &mssql.Error{Number: 50000, Message: "duplicate UX_thse_event_id"}, indexName: "UX_thse_event_id"},
-		{name: "wrong index name", err: &mssql.Error{Number: 2627, Message: "duplicate UX_thse_other"}, indexName: "UX_thse_event_id"},
+		{name: "wrong SQL error number", err: mssql.Error{Number: 50000, Message: "duplicate UX_thse_event_id"}, indexName: "UX_thse_event_id"},
+		{name: "wrong index name", err: mssql.Error{Number: 2627, Message: "duplicate UX_thse_other"}, indexName: "UX_thse_event_id"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

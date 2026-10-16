@@ -481,11 +481,20 @@ func nullable(value string) any {
 }
 
 func isUniqueIndexError(err error, indexName string) bool {
-	var sqlErr *mssql.Error
-	if !errors.As(err, &sqlErr) || (sqlErr.Number != 2601 && sqlErr.Number != 2627) {
+	var numberedError interface{ SQLErrorNumber() int32 }
+	if !errors.As(err, &numberedError) {
 		return false
 	}
-	return strings.Contains(sqlErr.Message, indexName)
+	number := numberedError.SQLErrorNumber()
+	if number != 2601 && number != 2627 {
+		return false
+	}
+	message := err.Error()
+	var sqlError mssql.Error
+	if errors.As(err, &sqlError) {
+		message = sqlError.Message
+	}
+	return strings.Contains(message, indexName)
 }
 
 func (r *historyRepository) emit(ctx context.Context, reason string) {
