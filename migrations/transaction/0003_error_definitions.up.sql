@@ -8,7 +8,4 @@ CREATE TABLE dbo.transaction_error_definitions (
 );
 
 -- +goose Down
-IF OBJECT_ID('dbo.transaction_error_definitions', 'U') IS NOT NULL
-BEGIN
-    DROP TABLE dbo.transaction_error_definitions;
-END;
+DROP TABLE IF EXISTS dbo.transaction_error_definitions;
