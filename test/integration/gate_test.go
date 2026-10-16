@@ -420,7 +420,94 @@ func testNonlocalJWT(t *testing.T, db *sql.DB) {
 	expired := issueToken(t, privateKey, testIssuer, testAudience, "owner-1", "app_a", "backoffice", time.Now().Add(-time.Hour))
 	_, err = client.GetTransaction(outgoingJWT(expired), &historyv1.GetTransactionRequest{TransactionId: transactionID})
 	requireCoreError(t, err, "CORE-1001")
-	_ = db
+	testHTTPJWT(t, runtime, privateKey, db)
+}
+
+func testHTTPJWT(t *testing.T, runtime *runningRuntime, privateKey *rsa.PrivateKey, db *sql.DB) {
+	foreignID := "foreign-owner-transaction"
+	when := time.Now().UTC()
+	repo := repository.NewTransactionRepository(db, nil)
+	_, err := repo.ApplyStatusEvent(context.Background(), &domain.Transaction{
+		TransactionID: foreignID, AppName: "app_a", UserID: "someone-else", ProductCategory: domain.CategoryTransfer,
+		ProductType: domain.ProductTransferInternal, Provider: "bca", Direction: "debit", Amount: "2.00",
+		FeeAmount: "0.00", TotalAmount: "2.00", Currency: "IDR", Status: domain.StatusPending, StatusVersion: 1,
+		SourceSystem: "sample-producer", TransactionAt: when,
+	}, nil, domain.StatusEvent{
+		EventID: uuid.NewString(), EventType: "transaction.status.v1", StatusVersion: 1,
+		ToStatus: domain.StatusPending, ChangedByType: domain.ChangedBySystem, ChangedAt: when,
+	})
+	if err != nil {
+		t.Fatalf("insert foreign-owner fixture: %v", err)
+	}
+
+	ownerToken := issueToken(t, privateKey, testIssuer, testAudience, "owner-1", "app_a", "", time.Now().Add(time.Hour))
+	request := func(path, token, requestID string) (int, string, string, http.Header) {
+		t.Helper()
+		httpRequest, err := http.NewRequest(http.MethodGet, runtime.httpURL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if token != "" {
+			httpRequest.Header.Set("Authorization", "Bearer "+token)
+		}
+		if requestID != "" {
+			httpRequest.Header.Set("X-Request-ID", requestID)
+		}
+		response, err := (&http.Client{Timeout: 10 * time.Second}).Do(httpRequest)
+		if err != nil {
+			t.Fatalf("HTTP gateway %s: %v", path, err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			t.Fatalf("read HTTP gateway %s response: %v", path, err)
+		}
+		var envelope struct {
+			ResponseCode string `json:"response_code"`
+		}
+		if err := json.Unmarshal(body, &envelope); err != nil {
+			t.Fatalf("decode HTTP gateway %s response: %v (body %s)", path, err, body)
+		}
+		return response.StatusCode, envelope.ResponseCode, string(body), response.Header
+	}
+
+	const requestID = "predeploy-jwt-http-request"
+	status, _, listBody, headers := request("/v1/transactions", ownerToken, requestID)
+	if status != http.StatusOK || !strings.Contains(listBody, "product-transfer_bifast") {
+		t.Fatalf("JWT owner list status=%d contains owner row=%v", status, strings.Contains(listBody, "product-transfer_bifast"))
+	}
+	if headers.Get("X-Request-ID") != requestID {
+		t.Fatalf("JWT HTTP list X-Request-ID=%q, want %q", headers.Get("X-Request-ID"), requestID)
+	}
+	status, _, detailBody, headers := request("/v1/transactions/product-transfer_bifast", ownerToken, requestID)
+	if status != http.StatusOK || !strings.Contains(detailBody, "product-transfer_bifast") {
+		t.Fatalf("JWT owner detail status=%d contains owner row=%v", status, strings.Contains(detailBody, "product-transfer_bifast"))
+	}
+	if headers.Get("X-Request-ID") != requestID {
+		t.Fatalf("JWT HTTP detail X-Request-ID=%q, want %q", headers.Get("X-Request-ID"), requestID)
+	}
+	status, code, _, _ := request("/v1/transactions/foreign-owner-transaction", ownerToken, "")
+	if status != http.StatusNotFound || code != "CORE-1004" {
+		t.Fatalf("foreign-owner HTTP detail status=%d response_code=%q, want 404/CORE-1004", status, code)
+	}
+
+	for _, path := range []string{"/v1/transactions", "/v1/transactions/product-transfer_bifast"} {
+		status, code, _, _ := request(path, "", "")
+		if status != http.StatusUnauthorized || code != "CORE-1001" {
+			t.Fatalf("unauthenticated HTTP %s status=%d response_code=%q, want 401/CORE-1001", path, status, code)
+		}
+	}
+	wrongSigner, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	badToken := issueToken(t, wrongSigner, testIssuer, testAudience, "owner-1", "app_a", "", time.Now().Add(time.Hour))
+	for _, path := range []string{"/v1/transactions", "/v1/transactions/product-transfer_bifast"} {
+		status, code, _, _ := request(path, badToken, "")
+		if status != http.StatusUnauthorized || code != "CORE-1001" {
+			t.Fatalf("invalid-signature HTTP %s status=%d response_code=%q, want 401/CORE-1001", path, status, code)
+		}
+	}
 }
 
 type capturedLogger struct {
