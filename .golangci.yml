@@ -18,23 +18,23 @@ linters:
       rules:
         domain:
           files:
-            - internal/domain/**
+            - '**/internal/domain/**'
             - '!**/*_test.go'
-          list-mode: lax
+          list-mode: strict
           allow:
             - $gostd
         utils:
           files:
-            - internal/utils/**
+            - '**/internal/utils/**'
             - '!**/*_test.go'
-          list-mode: lax
+          list-mode: strict
           allow:
             - $gostd
         service:
           files:
-            - internal/service/**
+            - '**/internal/service/**'
             - '!**/*_test.go'
-          list-mode: lax
+          list-mode: strict
           allow:
             - $gostd
             - github.com/yogayulanda/transaction-history-service/internal/domain
@@ -44,7 +44,7 @@ linters:
             - github.com/google/uuid
         repository:
           files:
-            - internal/repository/**
+            - '**/internal/repository/**'
             - '!**/*_test.go'
           list-mode: lax
           deny:
@@ -56,7 +56,7 @@ linters:
               desc: repository must not depend on generated API bindings
         handler:
           files:
-            - internal/handler/**
+            - '**/internal/handler/**'
             - '!**/*_test.go'
           list-mode: lax
           deny:
