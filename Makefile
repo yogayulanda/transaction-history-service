@@ -9,7 +9,7 @@ GOOGLEAPIS_PROTO_DIR=$(shell find "$(shell go env GOMODCACHE)/github.com/grpc-ec
 
 PROTO_FILES=$(shell find $(PROTO_DIR) -name "*.proto")
 
-.PHONY: proto generate test run clean vet lint vuln fmt-check check
+.PHONY: proto generate test integration run clean vet lint vuln fmt-check check
 
 proto: generate
 
@@ -25,6 +25,15 @@ generate:
 
 test:
 	$(GO) test -race ./...
+
+integration:
+	@set -eu; \
+	compose_file=deploy/local/docker-compose.yml; \
+	project=transaction-history-predeploy; \
+	docker compose -p $$project -f $$compose_file down --volumes --remove-orphans >/dev/null 2>&1 || true; \
+	trap 'docker compose -p $$project -f $$compose_file down --volumes --remove-orphans' EXIT; \
+	docker compose -p $$project -f $$compose_file up -d --wait --wait-timeout 240; \
+	TH_SQL_PORT=$${TH_SQL_PORT:-14333} TH_KAFKA_PORT=$${TH_KAFKA_PORT:-29092} $(GO) test -tags=integration -count=1 -v ./test/integration
 
 vet:
 	$(GO) vet ./...

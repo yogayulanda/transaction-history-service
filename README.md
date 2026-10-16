@@ -19,6 +19,10 @@ Copy `.env.example` to `.env`, configure SQL Server, and set `HISTORY_HASH_KEY` 
 make run
 ```
 
+## JWT Configuration
+
+For non-local environments, configure exactly one of `HISTORY_JWT_PUBLIC_KEY` (PEM) or `HISTORY_JWT_JWKS_URL`, plus `HISTORY_JWT_ISSUER` and `HISTORY_JWT_AUDIENCE`. With neither key source configured, InternalJWT remains disabled; the service rejects non-local startup in that state. These service variables populate go-core's InternalJWT config directly; do not use the ignored `INTERNAL_JWT_*` prefix.
+
 Customer requests require authenticated claims. The service derives `user_id` from the claim subject and `app_name` from the `app_name` claim attribute; these values are not accepted as customer API parameters. Backoffice search requires the configured role, default `backoffice`.
 
 The HTTP gateway forwards through the local gRPC server, so the same authentication, request-ID, logging, and error interceptors apply to HTTP and gRPC customer requests. Backoffice search is not registered on the HTTP gateway.
@@ -83,6 +87,12 @@ Where does new code go?
 - Request, JSON, or proto → `handler`
 - Generic pure helper → `utils`
 - Environment or wiring → `app`
+
+## Pre-deploy gate
+
+With Docker Compose available, run `make integration`. The target starts a disposable SQL Server 2022 database and single-node KRaft Kafka, waits for both healthchecks, runs the build-tagged integration suite, and removes the Compose project and volumes on exit. It is intentionally separate from `make check`.
+
+The suite covers migrations 0001–0005 and rollback/reapply, Kafka status ingestion for every supported product detail, SQL ordering/deduplication and concurrent first events, invalid-event DLQ, customer/backoffice gRPC behavior, gateway request-ID and route behavior, and non-local JWT startup/authentication checks. Local go-core identity claims are tested over gRPC; the current gateway does not forward those claim metadata headers, so HTTP identity success is not asserted. In non-local mode the test generates a temporary RSA key and signs fictional test tokens.
 
 ## Developer Commands
 
