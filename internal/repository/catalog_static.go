@@ -1,48 +1,30 @@
-package catalog
+package repository
 
-import "strings"
+import (
+	"strings"
 
-type Catalog interface {
-	ProductCategory(productType string) (string, bool)
-	ValidProvider(productType, provider string) bool
-	ProviderName(provider string) string
-	ValidPartner(partner string) bool
-	AllowedSource(source string) bool
-	ValidApp(app string) bool
-}
+	"github.com/yogayulanda/transaction-history-service/internal/domain"
+)
 
 type StaticCatalog struct {
 	apps    map[string]struct{}
 	sources map[string]struct{}
 }
 
-var productCategories = map[string]string{
-	"transfer_bifast":   "transfer",
-	"transfer_rtol":     "transfer",
-	"transfer_internal": "transfer",
-	"pulsa":             "ppob",
-	"data_package":      "ppob",
-	"pln_prepaid":       "ppob",
-	"pln_postpaid":      "ppob",
-	"bpjs_kesehatan":    "ppob",
-	"cash_in":           "cico",
-	"cash_out":          "cico",
-}
-
 var providers = map[string]string{
-	"telkomsel":      "Telkomsel",
-	"xl":             "XL",
-	"indosat":        "Indosat",
-	"tri":            "Tri",
-	"smartfren":      "Smartfren",
-	"pln":            "PLN",
-	"bpjs_kesehatan": "BPJS Kesehatan",
-	"bca":            "BCA",
-	"mandiri":        "Mandiri",
-	"bni":            "BNI",
-	"bri":            "BRI",
-	"indomaret":      "Indomaret",
-	"pos":            "Pos Indonesia",
+	"telkomsel":                 "Telkomsel",
+	"xl":                        "XL",
+	"indosat":                   "Indosat",
+	"tri":                       "Tri",
+	"smartfren":                 "Smartfren",
+	"pln":                       "PLN",
+	domain.ProductBPJSKesehatan: "BPJS Kesehatan",
+	"bca":                       "BCA",
+	"mandiri":                   "Mandiri",
+	"bni":                       "BNI",
+	"bri":                       "BRI",
+	"indomaret":                 "Indomaret",
+	"pos":                       "Pos Indonesia",
 }
 
 func NewStaticCatalog(apps, sources []string) *StaticCatalog {
@@ -60,8 +42,7 @@ func DefaultStaticCatalog(apps, sources string) *StaticCatalog {
 }
 
 func (c *StaticCatalog) ProductCategory(productType string) (string, bool) {
-	category, ok := productCategories[productType]
-	return category, ok
+	return domain.ProductCategory(productType)
 }
 
 func (c *StaticCatalog) ValidProvider(productType, provider string) bool {

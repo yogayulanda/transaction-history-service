@@ -1,4 +1,4 @@
-package backfill
+package service
 
 import (
 	"context"
@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/yogayulanda/transaction-history-service/internal/catalog"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
-	"github.com/yogayulanda/transaction-history-service/internal/handler/kafka"
-	"github.com/yogayulanda/transaction-history-service/internal/pii"
+	"github.com/yogayulanda/transaction-history-service/internal/repository"
+	"github.com/yogayulanda/transaction-history-service/internal/utils"
 )
 
 type fakeSource struct {
@@ -30,42 +29,43 @@ func (s *fakeSource) Next(_ context.Context, _ int) ([]Record, error) {
 }
 
 type memoryRepository struct {
-	items  map[string]domain.TransactionSnapshot
+	items  map[string]domain.Transaction
 	events map[string]domain.StatusEvent
 }
 
 func newMemoryRepository() *memoryRepository {
-	return &memoryRepository{items: make(map[string]domain.TransactionSnapshot), events: make(map[string]domain.StatusEvent)}
+	return &memoryRepository{items: make(map[string]domain.Transaction), events: make(map[string]domain.StatusEvent)}
 }
 
-func (r *memoryRepository) InsertBackfill(_ context.Context, header *domain.TransactionSnapshot, _ *domain.Detail, event domain.StatusEvent) (bool, error) {
-	if _, exists := r.items[header.ID]; exists {
+func (r *memoryRepository) InsertBackfill(_ context.Context, transaction *domain.Transaction, _ *domain.Detail, event domain.StatusEvent) (bool, error) {
+	if _, exists := r.items[transaction.TransactionID]; exists {
 		return false, nil
 	}
-	r.items[header.ID] = *header
-	r.events[header.ID] = event
+	r.items[transaction.TransactionID] = *transaction
+	r.events[transaction.TransactionID] = event
 	return true, nil
 }
 
-func (r *memoryRepository) ApplyStatusEvent(_ context.Context, header *domain.TransactionSnapshot, _ *domain.Detail, event domain.StatusEvent) (domain.ApplyResult, error) {
-	current, exists := r.items[header.ID]
+func (r *memoryRepository) ApplyStatusEvent(_ context.Context, transaction *domain.Transaction, _ *domain.Detail, event domain.StatusEvent) (domain.ApplyResult, error) {
+	current, exists := r.items[transaction.TransactionID]
 	if !exists {
-		r.items[header.ID] = *header
-		r.events[header.ID] = event
+		r.items[transaction.TransactionID] = *transaction
+		r.events[transaction.TransactionID] = event
 		return domain.Created, nil
 	}
 	if event.StatusVersion <= current.StatusVersion {
 		return domain.Stale, nil
 	}
-	r.items[header.ID] = *header
-	r.events[header.ID] = event
+	r.items[transaction.TransactionID] = *transaction
+	r.events[transaction.TransactionID] = event
 	return domain.Updated, nil
 }
 
-func newRunner(source Source, repository *memoryRepository) *Runner {
-	hasher, _ := pii.NewHasher([]byte(strings.Repeat("k", 32)))
-	preparer := kafka.NewStatusEventHandler(nil, catalog.DefaultStaticCatalog("", "sample-producer"), hasher, nil, nil)
-	return NewRunner(source, repository, preparer)
+func newRunner(source Source, repo *memoryRepository) *Runner {
+	hasher, _ := utils.NewHasher([]byte(strings.Repeat("k", 32)))
+	validationCatalog := repository.NewStaticCatalog([]string{"app_a", "app_b"}, []string{"sample-producer"})
+	preparer := NewStatusEventService(repo, validationCatalog, hasher, nil)
+	return NewRunner(source, repo, preparer)
 }
 
 func validPayload(transactionID, status, amount string) json.RawMessage {
@@ -123,7 +123,7 @@ func TestRunnerRerunIsInsertOnlyAndUsesDeterministicBackfillEvent(t *testing.T) 
 
 func TestRunnerPreservesExistingAndLiveEventUpdatesBackfill(t *testing.T) {
 	repository := newMemoryRepository()
-	repository.items["tx-existing"] = domain.TransactionSnapshot{ID: "tx-existing", Status: "FAILED", StatusVersion: 2}
+	repository.items["tx-existing"] = domain.Transaction{TransactionID: "tx-existing", Status: "FAILED", StatusVersion: 2}
 	_, err := newRunner(&fakeSource{name: "sample-source", records: []Record{{SourceID: "existing", Payload: validPayload("tx-existing", "SUCCESS", "1")}}}, repository).Run(context.Background(), 1)
 	if err != nil {
 		t.Fatal(err)
@@ -168,11 +168,11 @@ func TestRunnerSkipsInvalidAndAddsDecimalStringsExactly(t *testing.T) {
 }
 
 func TestAddDecimalStrings(t *testing.T) {
-	got, err := addDecimalStrings("999999999999999999999999.99", "0.01")
+	got, err := utils.AddDecimalStrings("999999999999999999999999.99", "0.01")
 	if err != nil || got != "1000000000000000000000000.00" {
 		t.Fatalf("addDecimalStrings() = %q, %v", got, err)
 	}
-	if _, err := addDecimalStrings("1.001", "2"); err == nil {
+	if _, err := utils.AddDecimalStrings("1.001", "2"); err == nil {
 		t.Fatal("expected malformed decimal to fail")
 	}
 }

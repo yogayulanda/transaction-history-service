@@ -1,4 +1,4 @@
-package detail
+package domain
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestNormalizeFiltersAndMasksFields(t *testing.T) {
-	version, fields, err := Normalize("cash_in", map[string]any{
+	version, fields, err := NormalizeDetail("cash_in", map[string]any{
 		"code":       "CASHCODE123",
 		"warkat_no":  "WR-123",
 		"user_id":    "injected-user",
@@ -20,7 +20,7 @@ func TestNormalizeFiltersAndMasksFields(t *testing.T) {
 	if version != 1 || len(fields) != 2 {
 		t.Fatalf("unexpected normalized detail: version=%d fields=%v", version, fields)
 	}
-	if fields["code_masked"] != "****123" || fields["warkat_no"] != "WR-123" {
+	if fields["code"] != "CASHCODE123" || fields["warkat_no"] != "WR-123" {
 		t.Fatalf("unexpected normalized fields: %v", fields)
 	}
 }
@@ -35,14 +35,14 @@ func TestNormalizeValidatesTypesAndBounds(t *testing.T) {
 		{"bpjs_kesehatan", map[string]any{"period_months": float64(1.5)}},
 		{"bpjs_kesehatan", map[string]any{"participant_count": 51}},
 	} {
-		if _, _, err := Normalize(test.productType, test.fields); !errors.Is(err, ErrInvalidDetail) {
+		if _, _, err := NormalizeDetail(test.productType, test.fields); !errors.Is(err, ErrInvalidDetail) {
 			t.Errorf("Normalize(%q) error = %v, want ErrInvalidDetail", test.productType, err)
 		}
 	}
 }
 
 func TestNormalizeDropsUnknownAndReturnsEmpty(t *testing.T) {
-	version, fields, err := Normalize("pulsa", map[string]any{"other": "value", "user_id": "owner"})
+	version, fields, err := NormalizeDetail("pulsa", map[string]any{"other": "value", "user_id": "owner"})
 	if err != nil || version != 1 || len(fields) != 0 {
 		t.Fatalf("Normalize() = %d, %v, %v", version, fields, err)
 	}
@@ -66,7 +66,7 @@ func TestNormalizeAcceptsEveryProductSchema(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.productType, func(t *testing.T) {
-			version, fields, err := Normalize(test.productType, test.fields)
+			version, fields, err := NormalizeDetail(test.productType, test.fields)
 			if err != nil || version != 1 || len(fields) == 0 {
 				t.Fatal("Normalize failed for a valid product detail case")
 			}
@@ -95,7 +95,7 @@ func TestNormalizeRejectsEveryProductSchemaBoundary(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.productType, func(t *testing.T) {
-			if _, _, err := Normalize(test.productType, test.fields); !errors.Is(err, ErrInvalidDetail) {
+			if _, _, err := NormalizeDetail(test.productType, test.fields); !errors.Is(err, ErrInvalidDetail) {
 				t.Fatalf("Normalize() error = %v, want ErrInvalidDetail", err)
 			}
 		})

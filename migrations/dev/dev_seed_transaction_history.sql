@@ -1,13 +1,13 @@
 INSERT INTO dbo.transaction_histories (
-    id,
+    transaction_id,
     app_name,
     user_id,
-    reference_no,
     product_category,
     product_type,
     provider,
     partner,
     direction,
+    denomination,
     amount,
     fee_amount,
     total_amount,
@@ -20,6 +20,7 @@ INSERT INTO dbo.transaction_histories (
     destination_no_type,
     destination_no_masked,
     destination_no_hash,
+    reference_no,
     source_system,
     transaction_at,
     completed_at
@@ -28,7 +29,6 @@ VALUES (
     'seed-tx-001',
     'app_a',
     'seed-user-001',
-    'seed-ref-001',
     'transfer',
     'transfer_internal',
     'bca',
@@ -42,26 +42,26 @@ VALUES (
     'SUCCESS',
     1,
     NULL,
-    NULL,
     '****7890',
     'Sample recipient',
     'account',
     '****1234',
     REPLICATE('a', 64),
+    'seed-ref-001',
     'sample-producer',
     SYSUTCDATETIME(),
     SYSUTCDATETIME()
 );
 
 INSERT INTO dbo.transaction_history_details (
-    transaction_id,
+    transaction_history_id,
     schema_version,
-    fields_json
+    detail_json
 )
 VALUES (
-    'seed-tx-001',
+    (SELECT id FROM dbo.transaction_histories WHERE transaction_id = 'seed-tx-001'),
     1,
-    '{"note":"sample transfer"}'
+    N'{"note":"sample transfer"}'
 );
 
 INSERT INTO dbo.transaction_history_status_events (
@@ -76,7 +76,7 @@ INSERT INTO dbo.transaction_history_status_events (
     changed_at
 )
 VALUES (
-    'seed-tx-001',
+    (SELECT id FROM dbo.transaction_histories WHERE transaction_id = 'seed-tx-001'),
     '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
     'transaction.status.v1',
     1,

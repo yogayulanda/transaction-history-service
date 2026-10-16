@@ -8,27 +8,26 @@ import (
 	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/go-core/security"
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
-	"github.com/yogayulanda/transaction-history-service/internal/catalog"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
-	"github.com/yogayulanda/transaction-history-service/internal/pii"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
+	"github.com/yogayulanda/transaction-history-service/internal/utils"
 )
 
 type BackofficeHandler struct {
 	historyv1.UnimplementedHistoryBackofficeServiceServer
 	service  *service.HistoryService
-	catalog  catalog.Catalog
+	catalog  domain.Catalog
 	messages messageResolver
-	hasher   *pii.Hasher
+	hasher   *utils.Hasher
 	role     string
 	log      logger.Logger
 }
 
 func NewBackofficeHandler(
 	historyService *service.HistoryService,
-	validationCatalog catalog.Catalog,
+	validationCatalog domain.Catalog,
 	messages messageResolver,
-	hasher *pii.Hasher,
+	hasher *utils.Hasher,
 	role string,
 	log logger.Logger,
 ) historyv1.HistoryBackofficeServiceServer {
@@ -157,11 +156,11 @@ func backofficePageSize(requested int32) int {
 func normalizeSearchDestination(numberType, value string) (string, error) {
 	switch numberType {
 	case "phone":
-		return pii.NormalizePhone(value)
+		return utils.NormalizePhone(value)
 	case "account", "meter", "va":
-		return pii.NormalizeDigits(value)
+		return utils.NormalizeDigits(value)
 	default:
-		return "", pii.ErrInvalidNumber
+		return "", utils.ErrInvalidNumber
 	}
 }
 

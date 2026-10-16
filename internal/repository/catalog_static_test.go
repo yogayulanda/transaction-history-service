@@ -1,4 +1,4 @@
-package catalog
+package repository
 
 import "testing"
 

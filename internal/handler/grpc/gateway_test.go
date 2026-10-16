@@ -35,7 +35,7 @@ func TestGatewayUsesGRPCInterceptorsAndDoesNotExposeBackoffice(t *testing.T) {
 		return handler(ctx, req)
 	}))
 	historyv1.RegisterHistoryServiceServer(server, newTestHistoryHandler(&handlerRepository{
-		item: domain.TransactionSnapshot{ID: "tx-1", Status: "SUCCESS"},
+		item: domain.Transaction{ID: 1, TransactionID: "tx-1", Status: "SUCCESS"},
 	}))
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(server.Stop)

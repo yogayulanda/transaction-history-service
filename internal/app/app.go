@@ -11,27 +11,31 @@ import (
 	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/go-core/messaging"
+	coreserver "github.com/yogayulanda/go-core/server"
+	coregateway "github.com/yogayulanda/go-core/server/gateway"
+	coregrpc "github.com/yogayulanda/go-core/server/grpc"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
 
-	"github.com/yogayulanda/transaction-history-service/internal/catalog"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 	handlergrpc "github.com/yogayulanda/transaction-history-service/internal/handler/grpc"
 	handlerkafka "github.com/yogayulanda/transaction-history-service/internal/handler/kafka"
-	"github.com/yogayulanda/transaction-history-service/internal/identity"
-	"github.com/yogayulanda/transaction-history-service/internal/pii"
 	"github.com/yogayulanda/transaction-history-service/internal/repository"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
+	"github.com/yogayulanda/transaction-history-service/internal/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type App struct {
-	HistoryHandler      historyv1.HistoryServiceServer
-	BackofficeHandler   historyv1.HistoryBackofficeServiceServer
-	KafkaInbound        *kafkaInboundRunner
-	UsesDefaultResolver bool
+	HistoryHandler    historyv1.HistoryServiceServer
+	BackofficeHandler historyv1.HistoryBackofficeServiceServer
+	KafkaInbound      *kafkaInboundRunner
+	Components        []coreserver.Startable
 }
 
-func New(core *coreapp.App) (*App, error) {
+func New(ctx context.Context, core *coreapp.App) (*App, error) {
 	// Primary store for transaction history.
 	sqlDB := core.SQLByName("transaction_history")
 	if sqlDB == nil {
@@ -49,64 +53,94 @@ func New(core *coreapp.App) (*App, error) {
 
 	log := core.Logger()
 
-	historyRepo := repository.NewHistoryRepository(sqlDB.DB, log)
-	var messageResolver *service.DBErrorDefinitionResolver
-
-	if errDefRepo, ok := historyRepo.(domain.ErrorDefinitionRepository); ok {
-		resolver := service.NewDBErrorDefinitionResolver(errDefRepo, log)
-		messageResolver = resolver
-		if err := resolver.Load(context.Background()); err != nil {
-			log.LogService(context.Background(), logger.ServiceLog{
-				Operation: "error_definition_bootstrap",
-				Status:    "failed",
-				ErrorCode: "bootstrap_failed",
-				Metadata: map[string]interface{}{
-					"error": err.Error(),
-				},
-			})
-		}
-		coreerrors.SetMessageProvider(resolver)
-
-		refreshCtx, cancelRefresh := context.WithCancel(context.Background())
-		resolver.StartAutoRefresh(refreshCtx, 60*time.Second)
-		core.Lifecycle().Register(func(ctx context.Context) error {
-			cancelRefresh()
-			return nil
+	historyRepo := repository.NewTransactionRepository(sqlDB.DB, log)
+	messageProvider := service.NewDBMessageProvider(repository.NewMessageRepository(sqlDB.DB), log)
+	if err := messageProvider.Load(context.Background()); err != nil {
+		log.LogService(context.Background(), logger.ServiceLog{
+			Operation: "error_definition_bootstrap",
+			Status:    "failed",
+			ErrorCode: "bootstrap_failed",
+			Metadata: map[string]interface{}{
+				"error": err.Error(),
+			},
 		})
-
 	}
+	coreerrors.SetMessageProvider(messageProvider)
 
-	validationCatalog := catalog.DefaultStaticCatalog(os.Getenv("HISTORY_ALLOWED_APPS"), os.Getenv("HISTORY_ALLOWED_SOURCES"))
-	identityResolver := identity.NewClaimsResolver(validationCatalog)
-	historyService := service.NewHistoryService(historyRepo)
+	refreshCtx, cancelRefresh := context.WithCancel(context.Background())
+	messageProvider.StartAutoRefresh(refreshCtx, 60*time.Second)
+	core.Lifecycle().Register(func(ctx context.Context) error {
+		cancelRefresh()
+		return nil
+	})
+
+	validationCatalog := repository.DefaultStaticCatalog(os.Getenv("HISTORY_ALLOWED_APPS"), os.Getenv("HISTORY_ALLOWED_SOURCES"))
+	identityResolver := handlergrpc.NewClaimsResolver(validationCatalog)
+	historyService := service.NewHistoryService(historyRepo, historyRepo)
 	hashKey, err := loadHistoryHashKey()
 	if err != nil {
 		return nil, err
 	}
-	hasher, err := pii.NewHasher(hashKey)
+	hasher, err := utils.NewHasher(hashKey)
 	if err != nil {
 		return nil, fmt.Errorf("initialize history hash key: %w", err)
 	}
-	historyHandler := handlergrpc.NewHistoryHandler(historyService, identityResolver, validationCatalog, messageResolver)
+	historyHandler := handlergrpc.NewHistoryHandler(historyService, identityResolver, validationCatalog, messageProvider)
 	backofficeHandler := handlergrpc.NewBackofficeHandler(
 		historyService,
 		validationCatalog,
-		messageResolver,
+		messageProvider,
 		hasher,
 		os.Getenv("HISTORY_BACKOFFICE_ROLE"),
 		log,
 	)
-	statusEventService := service.NewStatusEventService(historyRepo, log)
-	kafkaInbound, err := buildKafkaInbound(core, statusEventService, publisher, log)
+	kafkaInbound, err := buildKafkaInbound(core, historyRepo, publisher, log)
 	if err != nil {
 		return nil, err
 	}
+	if core.Config().App.Environment != "local" && !core.Config().Auth.InternalJWT.Enabled {
+		return nil, fmt.Errorf("default claims resolver requires internal JWT outside local environment")
+	}
+	grpcServer, err := coregrpc.New(core)
+	if err != nil {
+		return nil, err
+	}
+	grpcServer.Register(func(server *grpc.Server) {
+		historyv1.RegisterHistoryServiceServer(server, historyHandler)
+		historyv1.RegisterHistoryBackofficeServiceServer(server, backofficeHandler)
+	})
+	gatewayServer, err := coregateway.New(
+		core,
+		func(ctx context.Context, mux *runtime.ServeMux) error {
+			return historyv1.RegisterHistoryServiceHandlerFromEndpoint(
+				ctx,
+				mux,
+				fmt.Sprintf("localhost:%d", core.Config().GRPC.Port),
+				[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
+			)
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	httpEndpoints, grpcMethods := coreserver.DescribeFromProto(historyv1.File_history_v1_history_proto, true)
+	log.Info(context.Background(), "available endpoints",
+		logger.Field{Key: "http_endpoints", Value: httpEndpoints},
+		logger.Field{Key: "grpc_methods", Value: grpcMethods},
+		logger.Field{Key: "http_port", Value: core.Config().HTTP.Port},
+		logger.Field{Key: "grpc_port", Value: core.Config().GRPC.Port},
+	)
+	go coreserver.LogStartupReadiness(ctx, log, core.Config().GRPC.Port, core.Config().HTTP.Port, 10*time.Second, core.Config().HTTP.TLSEnabled)
+	components := []coreserver.Startable{grpcServer, gatewayServer}
+	if kafkaInbound != nil {
+		components = append(components, kafkaInbound)
+	}
 
 	return &App{
-		HistoryHandler:      historyHandler,
-		BackofficeHandler:   backofficeHandler,
-		KafkaInbound:        kafkaInbound,
-		UsesDefaultResolver: true,
+		HistoryHandler:    historyHandler,
+		BackofficeHandler: backofficeHandler,
+		KafkaInbound:      kafkaInbound,
+		Components:        components,
 	}, nil
 }
 
@@ -120,7 +154,7 @@ func loadHistoryHashKey() ([]byte, error) {
 
 func buildKafkaInbound(
 	core *coreapp.App,
-	statusEventService *service.StatusEventService,
+	historyRepo domain.TransactionRepository,
 	publisher messaging.Publisher,
 	log logger.Logger,
 ) (*kafkaInboundRunner, error) {
@@ -135,12 +169,13 @@ func buildKafkaInbound(
 		return nil, fmt.Errorf("kafka inbound enabled but kafka publisher is not initialized")
 	}
 
-	hasher, err := pii.NewHasher(inboundCfg.HashKey)
+	hasher, err := utils.NewHasher(inboundCfg.HashKey)
 	if err != nil {
 		return nil, fmt.Errorf("initialize history hash key: %w", err)
 	}
-	validationCatalog := catalog.NewStaticCatalog(inboundCfg.AllowedApps, inboundCfg.AllowedSources)
-	handler := handlerkafka.NewStatusEventHandler(statusEventService, validationCatalog, hasher, publisher, log)
+	validationCatalog := repository.NewStaticCatalog(inboundCfg.AllowedApps, inboundCfg.AllowedSources)
+	statusEventService := service.NewStatusEventService(historyRepo, validationCatalog, hasher, log)
+	handler := handlerkafka.NewStatusEventHandler(statusEventService, publisher, log)
 	consumer, err := core.NewKafkaConsumer(
 		inboundCfg.Topic,
 		inboundCfg.GroupID,

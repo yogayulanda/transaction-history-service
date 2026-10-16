@@ -1,11 +1,10 @@
-package identity
+package grpc
 
 import (
 	"context"
 
 	coreerrors "github.com/yogayulanda/go-core/errors"
 	"github.com/yogayulanda/go-core/security"
-	"github.com/yogayulanda/transaction-history-service/internal/catalog"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 )
 
@@ -14,10 +13,10 @@ type Resolver interface {
 }
 
 type ClaimsResolver struct {
-	catalog catalog.Catalog
+	catalog domain.Catalog
 }
 
-func NewClaimsResolver(validationCatalog catalog.Catalog) *ClaimsResolver {
+func NewClaimsResolver(validationCatalog domain.Catalog) *ClaimsResolver {
 	return &ClaimsResolver{catalog: validationCatalog}
 }
 

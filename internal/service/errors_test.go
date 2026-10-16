@@ -47,7 +47,7 @@ func TestNewInternalError_UsesCoreCodeAndWraps(t *testing.T) {
 
 func TestErrorCodes_MapToExpectedGRPCStatusesAndMessages(t *testing.T) {
 	preserveErrorRegistry(t)
-	provider := NewDBErrorDefinitionResolver(&fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
+	provider := NewDBMessageProvider(&fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{ErrorCode: "CORE-1004", UserMessage: "localized not found"},
 		{ErrorCode: "CORE-1000", UserMessage: "localized invalid request"},
 	}}, nil)

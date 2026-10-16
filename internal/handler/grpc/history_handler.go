@@ -7,24 +7,22 @@ import (
 
 	coreerrors "github.com/yogayulanda/go-core/errors"
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
-	"github.com/yogayulanda/transaction-history-service/internal/catalog"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
-	"github.com/yogayulanda/transaction-history-service/internal/identity"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
 )
 
 type HistoryHandler struct {
 	historyv1.UnimplementedHistoryServiceServer
 	service  *service.HistoryService
-	identity identity.Resolver
-	catalog  catalog.Catalog
+	identity Resolver
+	catalog  domain.Catalog
 	messages messageResolver
 }
 
 func NewHistoryHandler(
 	historyService *service.HistoryService,
-	resolver identity.Resolver,
-	validationCatalog catalog.Catalog,
+	resolver Resolver,
+	validationCatalog domain.Catalog,
 	messages messageResolver,
 ) historyv1.HistoryServiceServer {
 	return &HistoryHandler{service: historyService, identity: resolver, catalog: validationCatalog, messages: messages}
@@ -46,7 +44,7 @@ func (h *HistoryHandler) ListTransactions(
 		return nil, invalidRequest("date_range", err.Error())
 	}
 	statusFilter := strings.TrimSpace(req.Status)
-	if statusFilter != "" && !validTransactionStatus(statusFilter) {
+	if statusFilter != "" && !domain.IsValidStatus(statusFilter) {
 		return nil, invalidRequest("status", "invalid")
 	}
 	cursorTime, cursorID, err := decodeCursor(req.Cursor)

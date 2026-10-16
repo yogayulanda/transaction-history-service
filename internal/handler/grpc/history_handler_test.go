@@ -12,23 +12,22 @@ import (
 	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/go-core/security"
 	historyv1 "github.com/yogayulanda/transaction-history-service/gen/go/history/v1"
-	"github.com/yogayulanda/transaction-history-service/internal/catalog"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
-	"github.com/yogayulanda/transaction-history-service/internal/identity"
-	"github.com/yogayulanda/transaction-history-service/internal/pii"
+	"github.com/yogayulanda/transaction-history-service/internal/repository"
 	"github.com/yogayulanda/transaction-history-service/internal/service"
+	"github.com/yogayulanda/transaction-history-service/internal/utils"
 	"google.golang.org/grpc/status"
 )
 
 type handlerRepository struct {
 	owner          domain.Owner
-	item           domain.TransactionSnapshot
+	item           domain.Transaction
 	searchCriteria domain.SearchCriteria
-	searchItems    []domain.TransactionSnapshot
+	searchItems    []domain.Transaction
 	err            error
 }
 
-func (r *handlerRepository) FindByOwner(_ context.Context, owner domain.Owner, _ string) (*domain.TransactionSnapshot, *domain.Detail, error) {
+func (r *handlerRepository) FindByOwner(_ context.Context, owner domain.Owner, _ string) (*domain.Transaction, *domain.Detail, error) {
 	r.owner = owner
 	if r.err != nil {
 		return nil, nil, r.err
@@ -36,15 +35,15 @@ func (r *handlerRepository) FindByOwner(_ context.Context, owner domain.Owner, _
 	return &r.item, nil, nil
 }
 
-func (r *handlerRepository) ListByOwner(_ context.Context, owner domain.Owner, _ domain.TransactionFilter) ([]domain.TransactionSnapshot, bool, error) {
+func (r *handlerRepository) ListByOwner(_ context.Context, owner domain.Owner, _ domain.TransactionFilter) ([]domain.Transaction, bool, error) {
 	r.owner = owner
 	if r.err != nil {
 		return nil, false, r.err
 	}
-	return []domain.TransactionSnapshot{r.item}, false, nil
+	return []domain.Transaction{r.item}, false, nil
 }
 
-func (r *handlerRepository) Search(_ context.Context, criteria domain.SearchCriteria) ([]domain.TransactionSnapshot, bool, error) {
+func (r *handlerRepository) Search(_ context.Context, criteria domain.SearchCriteria) ([]domain.Transaction, bool, error) {
 	r.searchCriteria = criteria
 	return r.searchItems, false, nil
 }
@@ -54,10 +53,10 @@ func (r *handlerRepository) ListStatusHistory(context.Context, string) ([]domain
 }
 
 func newTestHistoryHandler(repo *handlerRepository) *HistoryHandler {
-	validationCatalog := catalog.DefaultStaticCatalog("", "")
+	validationCatalog := repository.DefaultStaticCatalog("", "")
 	return &HistoryHandler{
-		service:  service.NewHistoryService(repo),
-		identity: identity.NewClaimsResolver(validationCatalog),
+		service:  service.NewHistoryService(repo, repo),
+		identity: NewClaimsResolver(validationCatalog),
 		catalog:  validationCatalog,
 	}
 }
@@ -67,7 +66,7 @@ func claimsContext() context.Context {
 }
 
 func TestHistoryHandlerUsesClaimsOwner(t *testing.T) {
-	repo := &handlerRepository{item: domain.TransactionSnapshot{ID: "tx-1", TransactionAt: time.Now().UTC()}}
+	repo := &handlerRepository{item: domain.Transaction{ID: 1, TransactionID: "tx-1", TransactionAt: time.Now().UTC()}}
 	handler := newTestHistoryHandler(repo)
 	_, err := handler.ListTransactions(claimsContext(), &historyv1.ListTransactionsRequest{})
 	if err != nil {
@@ -122,16 +121,16 @@ func TestParseDateRangeUsesJakartaInclusiveEnd(t *testing.T) {
 }
 
 func TestCursorRoundTripAndRejectsInvalid(t *testing.T) {
-	item := domain.TransactionSnapshot{ID: "tx-1", TransactionAt: time.Date(2026, 10, 16, 1, 2, 3, 4, time.UTC)}
+	item := domain.Transaction{ID: 1, TransactionID: "tx-1", TransactionAt: time.Date(2026, 10, 16, 1, 2, 3, 4, time.UTC)}
 	encoded := encodeCursor(item)
 	when, id, err := decodeCursor(encoded)
 	if err != nil || id != item.ID || !when.Equal(item.TransactionAt) {
-		t.Fatalf("cursor roundtrip = %s, %q, %v", when, id, err)
+		t.Fatalf("cursor roundtrip = %s, %d, %v", when, id, err)
 	}
 	if _, _, err := decodeCursor("not-base64"); err == nil {
 		t.Fatal("expected malformed cursor error")
 	}
-	invalid, _ := json.Marshal(pageCursor{ID: "tx-1"})
+	invalid, _ := json.Marshal(pageCursor{ID: 1})
 	if _, _, err := decodeCursor(base64.RawURLEncoding.EncodeToString(invalid)); err == nil {
 		t.Fatal("expected zero timestamp cursor error")
 	}
@@ -152,7 +151,7 @@ func TestDetailOneofMapsEveryProduct(t *testing.T) {
 		{"cash_in", map[string]any{"code_masked": "****123"}, true},
 	}
 	for _, test := range tests {
-		got := toProtoDetail(context.Background(), domain.TransactionSnapshot{ProductType: test.productType}, &domain.Detail{Fields: test.fields}, nil, catalog.DefaultStaticCatalog("", ""), nil)
+		got := toProtoDetail(context.Background(), domain.Transaction{ProductType: test.productType}, &domain.Detail{Fields: test.fields}, nil, repository.DefaultStaticCatalog("", ""), nil)
 		if (got.GetDetail() != nil) != test.present {
 			t.Errorf("%s detail oneof present=%v", test.productType, got.GetDetail() != nil)
 		}
@@ -160,7 +159,7 @@ func TestDetailOneofMapsEveryProduct(t *testing.T) {
 }
 
 func TestCursorEncodingIsStable(t *testing.T) {
-	item := domain.TransactionSnapshot{ID: "tx-2", TransactionAt: time.Date(2026, 10, 16, 1, 0, 0, 0, time.UTC)}
+	item := domain.Transaction{ID: 2, TransactionID: "tx-2", TransactionAt: time.Date(2026, 10, 16, 1, 0, 0, 0, time.UTC)}
 	first := encodeCursor(item)
 	second := encodeCursor(item)
 	if first != second || first == "" {
@@ -185,15 +184,15 @@ func (*auditLogger) LogTransaction(context.Context, logger.TransactionLog) {}
 func (l *auditLogger) WithComponent(string) logger.Logger                  { return l }
 
 func TestBackofficeSearchHashesDestinationAndAuditsWithoutRawNumber(t *testing.T) {
-	validationCatalog := catalog.DefaultStaticCatalog("", "")
-	hasher, err := pii.NewHasher([]byte(strings.Repeat("k", 32)))
+	validationCatalog := repository.DefaultStaticCatalog("", "")
+	hasher, err := utils.NewHasher([]byte(strings.Repeat("k", 32)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := &handlerRepository{searchItems: []domain.TransactionSnapshot{{ID: "tx-1", Status: "SUCCESS"}}}
+	repo := &handlerRepository{searchItems: []domain.Transaction{{ID: 1, TransactionID: "tx-1", Status: "SUCCESS"}}}
 	log := &auditLogger{}
 	handler := &BackofficeHandler{
-		service: service.NewHistoryService(repo),
+		service: service.NewHistoryService(repo, repo),
 		catalog: validationCatalog,
 		hasher:  hasher,
 		role:    "backoffice",
@@ -228,8 +227,9 @@ func TestBackofficeSearchHashesDestinationAndAuditsWithoutRawNumber(t *testing.T
 }
 
 func TestBackofficeSearchRequiresRole(t *testing.T) {
-	validationCatalog := catalog.DefaultStaticCatalog("", "")
-	handler := &BackofficeHandler{service: service.NewHistoryService(&handlerRepository{}), catalog: validationCatalog, role: "backoffice"}
+	validationCatalog := repository.DefaultStaticCatalog("", "")
+	repo := &handlerRepository{}
+	handler := &BackofficeHandler{service: service.NewHistoryService(repo, repo), catalog: validationCatalog, role: "backoffice"}
 	ctx := security.Inject(context.Background(), &security.Claims{Role: "customer"})
 	_, err := handler.SearchTransactions(ctx, &historyv1.SearchTransactionsRequest{TransactionId: "tx-1"})
 	if status.Code(err).String() != "PermissionDenied" {

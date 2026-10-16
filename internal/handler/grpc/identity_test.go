@@ -1,15 +1,15 @@
-package identity
+package grpc
 
 import (
 	"context"
 	"testing"
 
 	"github.com/yogayulanda/go-core/security"
-	"github.com/yogayulanda/transaction-history-service/internal/catalog"
+	"github.com/yogayulanda/transaction-history-service/internal/repository"
 )
 
 func TestClaimsResolver(t *testing.T) {
-	resolver := NewClaimsResolver(catalog.DefaultStaticCatalog("", ""))
+	resolver := NewClaimsResolver(repository.DefaultStaticCatalog("", ""))
 	tests := []struct {
 		name     string
 		claims   *security.Claims

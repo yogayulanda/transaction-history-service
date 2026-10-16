@@ -2,8 +2,9 @@ package domain
 
 import "time"
 
-type TransactionHistory struct {
-	ID                  string
+type Transaction struct {
+	ID                  int64
+	TransactionID       string
 	AppName             string
 	UserID              string
 	ReferenceNo         string
@@ -31,5 +32,3 @@ type TransactionHistory struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
-
-type TransactionSnapshot = TransactionHistory

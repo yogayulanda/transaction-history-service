@@ -1,16 +1,15 @@
-package detail
+package domain
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
-
-	"github.com/yogayulanda/transaction-history-service/internal/pii"
+	"unicode"
 )
 
-var ErrInvalidDetail = errors.New("invalid transaction detail")
-
-var bankCodePattern = regexp.MustCompile(`^\d*$`)
+var (
+	bankCodePattern = regexp.MustCompile(`^\d*$`)
+	amountPattern   = regexp.MustCompile(`^\d{1,16}(\.\d{1,2})?$`)
+)
 
 var headerFields = map[string]struct{}{
 	"id": {}, "app_name": {}, "user_id": {}, "reference_no": {}, "product_category": {},
@@ -29,25 +28,38 @@ type fieldRule struct {
 	max       int64
 }
 
-var schemas = map[string]map[string]fieldRule{
-	"transfer_bifast":   {"bank_code": {maxLength: 8, digits: true}, "note": {maxLength: 100}},
-	"transfer_rtol":     {"bank_code": {maxLength: 8, digits: true}, "note": {maxLength: 100}},
-	"transfer_internal": {"bank_code": {maxLength: 8, digits: true}, "note": {maxLength: 100}},
-	"pulsa":             {"serial_number": {maxLength: 64}},
-	"data_package":      {"product_name": {maxLength: 100}, "serial_number": {maxLength: 64}},
-	"pln_prepaid":       {"token": {maxLength: 32}, "kwh": {maxLength: 16}, "tariff_power": {maxLength: 32}},
-	"pln_postpaid":      {"period": {maxLength: 32}, "stand_meter": {maxLength: 64}},
-	"bpjs_kesehatan": {
+var ProductCategories = map[string]string{
+	ProductTransferBiFast:   CategoryTransfer,
+	ProductTransferRTOL:     CategoryTransfer,
+	ProductTransferInternal: CategoryTransfer,
+	ProductPulsa:            CategoryPPOB,
+	ProductDataPackage:      CategoryPPOB,
+	ProductPLNPrepaid:       CategoryPPOB,
+	ProductPLNPostpaid:      CategoryPPOB,
+	ProductBPJSKesehatan:    CategoryPPOB,
+	ProductCashIn:           CategoryCICO,
+	ProductCashOut:          CategoryCICO,
+}
+
+var detailSchemas = map[string]map[string]fieldRule{
+	ProductTransferBiFast:   {"bank_code": {maxLength: 8, digits: true}, "note": {maxLength: 100}},
+	ProductTransferRTOL:     {"bank_code": {maxLength: 8, digits: true}, "note": {maxLength: 100}},
+	ProductTransferInternal: {"bank_code": {maxLength: 8, digits: true}, "note": {maxLength: 100}},
+	ProductPulsa:            {"serial_number": {maxLength: 64}},
+	ProductDataPackage:      {"product_name": {maxLength: 100}, "serial_number": {maxLength: 64}},
+	ProductPLNPrepaid:       {"token": {maxLength: 32}, "kwh": {maxLength: 16}, "tariff_power": {maxLength: 32}},
+	ProductPLNPostpaid:      {"period": {maxLength: 32}, "stand_meter": {maxLength: 64}},
+	ProductBPJSKesehatan: {
 		"period_months":     {integer: true, min: 1, max: 24},
 		"participant_count": {integer: true, min: 1, max: 50},
 		"branch":            {maxLength: 64},
 	},
-	"cash_in":  {"code": {maxLength: 0}, "warkat_no": {maxLength: 32}},
-	"cash_out": {"code": {maxLength: 0}, "warkat_no": {maxLength: 32}},
+	ProductCashIn:  {"code": {maxLength: 0}, "warkat_no": {maxLength: 32}},
+	ProductCashOut: {"code": {maxLength: 0}, "warkat_no": {maxLength: 32}},
 }
 
-func Normalize(productType string, fields map[string]any) (int, map[string]any, error) {
-	schema, ok := schemas[productType]
+func NormalizeDetail(productType string, fields map[string]any) (int, map[string]any, error) {
+	schema, ok := detailSchemas[productType]
 	if !ok {
 		return 0, nil, fmt.Errorf("%w: unsupported product type", ErrInvalidDetail)
 	}
@@ -61,13 +73,13 @@ func Normalize(productType string, fields map[string]any) (int, map[string]any, 
 		if !known {
 			continue
 		}
-		if productType == "cash_in" || productType == "cash_out" {
+		if productType == ProductCashIn || productType == ProductCashOut {
 			if key == "code" {
 				code, ok := value.(string)
 				if !ok {
 					return 0, nil, fmt.Errorf("%w: code must be a string", ErrInvalidDetail)
 				}
-				clean["code_masked"] = pii.MaskNumber("cico", code)
+				clean["code"] = code
 				continue
 			}
 		}
@@ -78,6 +90,27 @@ func Normalize(productType string, fields map[string]any) (int, map[string]any, 
 		clean[key] = validated
 	}
 	return 1, clean, nil
+}
+
+func ValidAmount(value string) bool {
+	return amountPattern.MatchString(value)
+}
+
+func ValidCurrency(value string) bool {
+	if len(value) != 3 {
+		return false
+	}
+	for _, char := range value {
+		if !unicode.IsLetter(char) || !unicode.IsUpper(char) {
+			return false
+		}
+	}
+	return true
+}
+
+func ProductCategory(productType string) (string, bool) {
+	category, ok := ProductCategories[productType]
+	return category, ok
 }
 
 func validateField(key string, value any, rule fieldRule) (any, error) {

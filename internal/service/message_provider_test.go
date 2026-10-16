@@ -21,7 +21,7 @@ func (f *fakeErrorDefinitionRepo) ListActiveErrorDefinitions(context.Context) ([
 	return f.rows, nil
 }
 
-func TestDBErrorDefinitionResolver_LoadAndResolveMessage(t *testing.T) {
+func TestDBMessageProvider_LoadAndResolveMessage(t *testing.T) {
 	repo := &fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{
 			ErrorCode:   "CORE-1000",
@@ -32,7 +32,7 @@ func TestDBErrorDefinitionResolver_LoadAndResolveMessage(t *testing.T) {
 		},
 	}}
 
-	resolver := NewDBErrorDefinitionResolver(repo, nil)
+	resolver := NewDBMessageProvider(repo, nil)
 	if err := resolver.Load(context.Background()); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -46,7 +46,7 @@ func TestDBErrorDefinitionResolver_LoadAndResolveMessage(t *testing.T) {
 	}
 }
 
-func TestDBErrorDefinitionResolver_EmptyMessageIsNotProvided(t *testing.T) {
+func TestDBMessageProvider_EmptyMessageIsNotProvided(t *testing.T) {
 	repo := &fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{
 			ErrorCode:   "CORE-9000",
@@ -57,7 +57,7 @@ func TestDBErrorDefinitionResolver_EmptyMessageIsNotProvided(t *testing.T) {
 		},
 	}}
 
-	resolver := NewDBErrorDefinitionResolver(repo, nil)
+	resolver := NewDBMessageProvider(repo, nil)
 	if err := resolver.Load(context.Background()); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -67,7 +67,7 @@ func TestDBErrorDefinitionResolver_EmptyMessageIsNotProvided(t *testing.T) {
 	}
 }
 
-func TestDBErrorDefinitionResolver_RefreshFailureKeepsPreviousCache(t *testing.T) {
+func TestDBMessageProvider_RefreshFailureKeepsPreviousCache(t *testing.T) {
 	repo := &fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{
 			ErrorCode:   "STATUS-SUCCESS",
@@ -78,7 +78,7 @@ func TestDBErrorDefinitionResolver_RefreshFailureKeepsPreviousCache(t *testing.T
 		},
 	}}
 
-	resolver := NewDBErrorDefinitionResolver(repo, nil)
+	resolver := NewDBMessageProvider(repo, nil)
 	if err := resolver.Load(context.Background()); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}

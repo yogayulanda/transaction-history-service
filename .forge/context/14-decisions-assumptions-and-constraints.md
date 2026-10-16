@@ -6,9 +6,10 @@ status: confirmed
 confidence: high
 source: hybrid
 evidence:
-  - { type: doc, ref: .forge/generated/ecp/2026-10-16-th-v1-ecp.md }
-  - { type: code, ref: internal/handler/kafka/status_event.go }
-  - { type: code, ref: internal/identity/identity.go }
+  - { type: doc, ref: .forge/generated/ecp/2026-10-16-th-v1-fix-ecp.md }
+  - { type: code, ref: internal/service/status_event_service.go }
+  - { type: code, ref: internal/handler/grpc/identity.go }
+  - { type: code, ref: internal/repository/transaction_repository.go }
   - { type: code, ref: migrations/transaction/0001_init_transaction_history.up.sql }
 owner: unresolved
 updated: 2026-10-16
@@ -28,9 +29,13 @@ updated: 2026-10-16
 - Invalid-event DLQ payloads are intentionally unchanged for replay and never logged. Internal fork I-A must apply the source topic's ACL, TLS, and retention controls to the `.dlq` topic.
 - Raw destination/source numbers and CICO codes are not persisted; raw account/phone/meter/VA values, CICO codes, PLN tokens, and notes are never logged.
 - Status event application is transactionally ordered by sequence; backfill is insert-only at version zero.
+- `transaction_histories.id` is an internal `BIGINT IDENTITY`; the external key is unique `transaction_id`. Details and status events reference the row ID without cascade delete.
+- Detail JSON is stored in `NVARCHAR(4000)` with an `ISJSON` check, and the service rejects oversize details before repository writes.
+- `domain` owns shared status/product/changed-by constants and pure rules; the dependency direction is `handler → service → domain ← repository`, with `app` wiring and standard-library-only `utils`.
+- `depguard` enforces domain/utils import purity, the service allowlist, and repository/handler dependency boundaries.
 
 ## Constraints
-- Go `1.26.9`, directive `1.26.0`, go-core `v1.2.1`; no new direct dependency was needed.
+- Go `1.26.9`, directive `1.26.0`, go-core `v1.2.1`; `github.com/microsoft/go-mssqldb` is direct for numbered SQL Server unique-violation handling and was already present in the module graph.
 - Generated protobuf output must be produced by `make generate`, not hand-edited.
 - Do not stage, commit, push, or publish without explicit request.
 

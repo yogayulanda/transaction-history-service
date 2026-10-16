@@ -1,17 +1,15 @@
-package backfill
+package service
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"math/big"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yogayulanda/go-core/messaging"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
+	"github.com/yogayulanda/transaction-history-service/internal/utils"
 )
 
 const backfillEventType = "history.backfill.v1"
@@ -26,12 +24,12 @@ type Record struct {
 	Payload  json.RawMessage
 }
 
-type Repository interface {
-	InsertBackfill(ctx context.Context, header *domain.TransactionSnapshot, detail *domain.Detail, event domain.StatusEvent) (bool, error)
+type backfillRepository interface {
+	InsertBackfill(ctx context.Context, transaction *domain.Transaction, detail *domain.Detail, event domain.StatusEvent) (bool, error)
 }
 
-type Preparer interface {
-	PrepareStatusEvent(attrs messaging.CloudEventAttributes, payload []byte) (*domain.TransactionSnapshot, *domain.Detail, domain.StatusEvent, error)
+type statusEventPreparer interface {
+	PrepareStatusEvent(input domain.StatusEventInput) (*domain.Transaction, *domain.Detail, domain.StatusEvent, error)
 }
 
 type ReportKey struct {
@@ -54,11 +52,11 @@ type Report struct {
 
 type Runner struct {
 	source  Source
-	repo    Repository
-	prepare Preparer
+	repo    backfillRepository
+	prepare statusEventPreparer
 }
 
-func NewRunner(source Source, repo Repository, prepare Preparer) *Runner {
+func NewRunner(source Source, repo backfillRepository, prepare statusEventPreparer) *Runner {
 	return &Runner{source: source, repo: repo, prepare: prepare}
 }
 
@@ -69,7 +67,7 @@ func (r *Runner) Run(ctx context.Context, batchSize int) (*Report, error) {
 	if batchSize <= 0 {
 		batchSize = 100
 	}
-	location, err := time.LoadLocation("Asia/Jakarta")
+	location, err := utils.Jakarta()
 	if err != nil {
 		return nil, err
 	}
@@ -94,14 +92,17 @@ func (r *Runner) Run(ctx context.Context, batchSize int) (*Report, error) {
 				continue
 			}
 			eventID := uuid.NewSHA1(uuid.NameSpaceDNS, []byte(r.source.Name()+":"+record.SourceID))
-			attrs := messaging.CloudEventAttributes{
-				ID:       eventID.String(),
-				Type:     "transaction.status.v1",
-				Subject:  transactionID,
-				Time:     transactionAt,
-				Sequence: "1",
+			var input domain.StatusEventInput
+			if err := json.Unmarshal(record.Payload, &input); err != nil {
+				recordInvalid(group, "malformed_json")
+				continue
 			}
-			header, detailValue, event, err := r.prepare.PrepareStatusEvent(attrs, record.Payload)
+			input.EventID = eventID.String()
+			input.EventType = "transaction.status.v1"
+			input.Subject = transactionID
+			input.EventTime = transactionAt
+			input.StatusVersion = 1
+			header, detailValue, event, err := r.prepare.PrepareStatusEvent(input)
 			if err != nil {
 				recordInvalid(group, safeReason(err))
 				continue
@@ -115,9 +116,9 @@ func (r *Runner) Run(ctx context.Context, batchSize int) (*Report, error) {
 			event.EventID = eventID.String()
 			event.EventType = backfillEventType
 			event.StatusVersion = 0
-			event.ChangedByType = "system"
+			event.ChangedByType = domain.ChangedBySystem
 			event.ChangedAt = header.TransactionAt
-			group.TotalAmount, err = addDecimalStrings(group.TotalAmount, header.TotalAmount)
+			group.TotalAmount, err = utils.AddDecimalStrings(group.TotalAmount, header.TotalAmount)
 			if err != nil {
 				recordInvalid(group, "invalid_total_amount")
 				continue
@@ -178,51 +179,4 @@ func safeReason(err error) string {
 		return "invalid_record"
 	}
 	return reason
-}
-
-func addDecimalStrings(left, right string) (string, error) {
-	leftMinor, ok := decimalMinorUnits(left)
-	if !ok {
-		return "", fmt.Errorf("invalid decimal")
-	}
-	rightMinor, ok := decimalMinorUnits(right)
-	if !ok {
-		return "", fmt.Errorf("invalid decimal")
-	}
-	sum := new(big.Int).Add(leftMinor, rightMinor)
-	negative := sum.Sign() < 0
-	if negative {
-		sum.Abs(sum)
-	}
-	whole, fraction := new(big.Int), new(big.Int)
-	whole.QuoRem(sum, big.NewInt(100), fraction)
-	formatted := fmt.Sprintf("%s.%02d", whole.String(), fraction.Int64())
-	if negative {
-		formatted = "-" + formatted
-	}
-	return formatted, nil
-}
-
-func decimalMinorUnits(value string) (*big.Int, bool) {
-	if value == "" || strings.HasPrefix(value, "-") || strings.HasPrefix(value, "+") {
-		return nil, false
-	}
-	whole, fraction, hasFraction := strings.Cut(value, ".")
-	if whole == "" || len(fraction) > 2 || (strings.Contains(fraction, ".")) {
-		return nil, false
-	}
-	for _, part := range []string{whole, fraction} {
-		for _, digit := range part {
-			if digit < '0' || digit > '9' {
-				return nil, false
-			}
-		}
-	}
-	if hasFraction {
-		fraction = fraction + strings.Repeat("0", 2-len(fraction))
-	} else {
-		fraction = "00"
-	}
-	minor, ok := new(big.Int).SetString(whole+fraction, 10)
-	return minor, ok
 }

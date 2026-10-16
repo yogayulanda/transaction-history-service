@@ -41,6 +41,49 @@ The event contract, product detail schemas, ordering rules, and DLQ behavior are
 
 Active `transaction_error_definitions` rows can override user-facing messages and status labels.
 
+## Repository structure
+
+```text
+cmd/server/main.go
+internal/
+	app/                        # dependency construction and service registration
+	domain/                     # types and pure rules; standard library only
+		transaction.go
+		status.go
+		product.go
+		event.go
+		catalog.go
+		repository.go
+		errors.go
+	service/                    # business flows; domain and utils dependencies
+		status_event_service.go
+		history_service.go
+		backfill_service.go
+		message_provider.go
+		errors.go
+	repository/                 # SQL Server access and static catalog
+		transaction_repository.go
+		message_repository.go
+		catalog_static.go
+	handler/
+		grpc/                     # customer and backoffice RPCs, identity, mapping
+		kafka/                    # CloudEvents/JSON decoding and DLQ
+	utils/                      # pure standard-library helpers, no internal imports
+		pii.go
+		decimal.go
+		timezone.go
+```
+
+Dependency direction: `handler → service → domain ← repository`; `app` wires dependencies, and `utils` imports nothing internal.
+
+Where does new code go?
+- SQL → `repository`
+- Rule, list, or constant → `domain`
+- Sequence of steps → `service`
+- Request, JSON, or proto → `handler`
+- Generic pure helper → `utils`
+- Environment or wiring → `app`
+
 ## Developer Commands
 
 ```bash
