@@ -107,7 +107,7 @@ func (s *StatusEventService) PrepareStatusEvent(input domain.StatusEventInput) (
 	if input.Currency == "" {
 		input.Currency = "IDR"
 	}
-	if !domain.ValidCurrency(input.Currency) || !withinLengths(input) {
+	if !domain.ValidCurrency(input.Currency) || !input.WithinLimits() {
 		return nil, nil, domain.StatusEvent{}, invalidEvent("invalid_field_length")
 	}
 	transactionAt, err := time.Parse(time.RFC3339Nano, input.TransactionAt)
@@ -219,15 +219,6 @@ func required(values ...string) bool {
 		}
 	}
 	return true
-}
-
-func withinLengths(input domain.StatusEventInput) bool {
-	return len(input.TransactionID) <= 64 && len(input.AppName) <= 16 && len(input.UserID) <= 64 &&
-		len(input.ReferenceNo) <= 64 && len(input.ProductCategory) <= 16 && len(input.ProductType) <= 32 &&
-		len(input.Provider) <= 32 && len(input.Partner) <= 32 && len(input.Direction) <= 6 &&
-		len(input.Denomination) <= 64 && len(input.Currency) == 3 && len(input.Status) <= 16 &&
-		len(input.ResponseCode) <= 16 && len(input.DestinationName) <= 100 &&
-		len(input.DestinationNoType) <= 8 && len(input.SourceSystem) <= 32 && len(input.ChangedByType) <= 16
 }
 
 func normalizeDestination(numberType, value string) (string, error) {

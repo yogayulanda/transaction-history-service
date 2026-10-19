@@ -23,26 +23,27 @@ Payload field names are snake_case. Unless marked optional, a field is required.
 | Field | Type | Rule |
 |---|---|---|
 | `transaction_id` | string | Required; max 64 characters; equals `ce_subject`. |
-| `app_name`, `user_id` | string | Required; max 64 characters; app must be allowed by configuration. |
-| `product_category` | string | Required; `transfer`, `ppob`, or `cico`; must match product type. |
-| `product_type` | string | Required; one of the types below. |
-| `provider` | string | Required; provider must be in the public catalog. |
-| `partner` | string | Optional; public sample catalog accepts `sample_partner`. |
-| `direction` | string | Required; `debit` or `credit`. |
-| `denomination` | string | Optional; max 64 characters. |
+| `app_name` | string | Required; max 16 characters; must be allowed by configuration. |
+| `user_id` | string | Required; max 64 characters. |
+| `product_category` | string | Required; max 16 characters; `transfer`, `ppob`, or `cico`; must match product type. |
+| `product_type` | string | Required; max 32 characters; one of the types below. |
+| `provider` | string | Required; max 32 characters; provider must be in the public catalog. |
+| `partner` | string | Optional; max 32 characters; public sample catalog accepts `sample_partner`. |
+| `direction` | string | Required; max 6 characters; `debit` or `credit`. |
+| `denomination` | decimal string | Optional; same format as `amount`. |
 | `amount`, `fee_amount`, `total_amount` | decimal string | Required; `^\d{1,16}(\.\d{1,2})?$`; SQL precision is `DECIMAL(18,2)`. |
 | `currency` | string | Optional; defaults to `IDR`; three uppercase letters. |
-| `status` | string | Required; `PENDING`, `UNKNOWN`, `SUCCESS`, `FAILED`, `NEED_REVIEW`, or `REFUNDED`. |
+| `status` | string | Required; max 16 characters; `PENDING`, `UNKNOWN`, `SUCCESS`, `FAILED`, `NEED_REVIEW`, or `REFUNDED`. |
 | `from_status` | string | Optional; one of the status values. |
-| `response_code` | string | Optional; max 64 characters. |
+| `response_code` | string | Optional; max 16 characters. |
 | `source_account_no` | string | Optional; digits only, 4–34 digits; only a masked value is stored. |
-| `destination_name` | string | Optional; max 128 characters. |
+| `destination_name` | string | Optional; max 100 characters. |
 | `destination_no` | string | Optional; requires `destination_no_type`; normalized, masked, and HMAC-hashed before persistence. |
-| `destination_no_type` | string | Required with destination number; `account`, `phone`, `meter`, or `va`. |
-| `reference_no` | string | Optional; max 128 characters. |
-| `source_system` | string | Required; must be in `HISTORY_ALLOWED_SOURCES`. |
+| `destination_no_type` | string | Required with destination number; max 8 characters; `account`, `phone`, `meter`, or `va`. |
+| `reference_no` | string | Optional; max 64 characters. |
+| `source_system` | string | Required; max 32 characters; must be in `HISTORY_ALLOWED_SOURCES`. |
 | `transaction_at` | string | Required; RFC3339 business timestamp. |
-| `changed_by_type` | string | Required; `user`, `system`, or `operator`. |
+| `changed_by_type` | string | Required; max 16 characters; `user`, `system`, or `operator`. |
 | `detail` | object | Optional; unknown keys and header-name keys are discarded. |
 
 Phone normalization removes spaces, dashes, dots, and a leading plus; `62…` becomes `0…`. The normalized number must match `^08\d{7,13}$`. Account, meter, and VA values must contain 4–34 digits. HMAC-SHA256 input is `<destination_no_type>:<normalized value>` using the hex-decoded `HISTORY_HASH_KEY`.

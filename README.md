@@ -13,7 +13,7 @@ This service stores transaction snapshots and ordered status history for custome
 
 ## Local Setup
 
-Copy `.env.example` to `.env`, configure SQL Server, and set `HISTORY_HASH_KEY` to a hex-encoded secret containing at least 32 bytes. If the event consumer is enabled, also set `HISTORY_STATUS_TOPIC` and `HISTORY_ALLOWED_SOURCES`.
+Copy `.env.example` to `.env`, configure SQL Server, and set `HISTORY_HASH_KEY` to a hex-encoded secret containing at least 32 bytes. If the event consumer is enabled, also set `HISTORY_STATUS_TOPIC` and `HISTORY_ALLOWED_SOURCES`. `HISTORY_ALLOWED_APPS` is a comma-separated list of accepted `app_name` values (default `app_a,app_b`). `HISTORY_BACKOFFICE_ROLE` is the role required for backoffice search (default `backoffice`).
 
 ```bash
 make run
