@@ -9,10 +9,59 @@ linters:
     - ineffassign
     - staticcheck
     - unused
+    - depguard
   settings:
     errcheck:
       check-type-assertions: true
       check-blank: false
+    depguard:
+      rules:
+        domain:
+          files:
+            - '**/internal/domain/**'
+            - '!**/*_test.go'
+          list-mode: strict
+          allow:
+            - $gostd
+        utils:
+          files:
+            - '**/internal/utils/**'
+            - '!**/*_test.go'
+          list-mode: strict
+          allow:
+            - $gostd
+        service:
+          files:
+            - '**/internal/service/**'
+            - '!**/*_test.go'
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/yogayulanda/transaction-history-service/internal/domain
+            - github.com/yogayulanda/transaction-history-service/internal/utils
+            - github.com/yogayulanda/go-core/errors
+            - github.com/yogayulanda/go-core/logger
+            - github.com/google/uuid
+        repository:
+          files:
+            - '**/internal/repository/**'
+            - '!**/*_test.go'
+          list-mode: lax
+          deny:
+            - pkg: github.com/yogayulanda/transaction-history-service/internal/service
+              desc: repository must not depend on service
+            - pkg: github.com/yogayulanda/transaction-history-service/internal/handler
+              desc: repository must not depend on handlers
+            - pkg: github.com/yogayulanda/transaction-history-service/gen
+              desc: repository must not depend on generated API bindings
+        handler:
+          files:
+            - '**/internal/handler/**'
+            - '!**/*_test.go'
+          list-mode: lax
+          deny:
+            - pkg: github.com/yogayulanda/transaction-history-service/internal/repository
+              desc: handlers must depend on services, not repositories
   exclusions:
     generated: lax
     presets:

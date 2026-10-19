@@ -4,35 +4,38 @@ title: Business Rules and Flows
 type: knowledge
 status: confirmed
 confidence: high
-source: ai
+source: hybrid
 evidence:
-  - { type: code, ref: internal/service/transaction_service.go }
-  - { type: code, ref: internal/service/idempotency.go }
-  - { type: code, ref: internal/handler/grpc/handler.go }
-  - { type: code, ref: internal/handler/kafka/transaction_created.go }
+  - { type: code, ref: internal/service/status_event_service.go }
+  - { type: code, ref: internal/handler/grpc/history_handler.go }
+  - { type: code, ref: internal/handler/kafka/status_event.go }
+  - { type: code, ref: internal/backfill/backfill.go }
 owner: unresolved
-updated: 2026-07-06
+updated: 2026-10-16
 ---
 
 # Business Rules and Flows
 
-## Create Flow
-- Required fields: `user_id`, `reference_id`, `channel`, `product_group`, `product_type`, `status_code`, `source_service`, and `currency`.
-- `currency` is normalized to uppercase and must be exactly three letters.
-- `status_code` is normalized to uppercase.
-- `amount`, `fee`, and `total_amount` must be non-negative.
-- `metadata_json` must be a valid JSON object; empty input becomes `{}`.
+## Status Event Flow
+- Validate restored CloudEvents ID/type/time/subject/sequence and snake_case snapshot payload.
+- Validate product/category/provider/app/source, direction, status, currency, decimal format, lengths, and product-specific detail.
+- Normalize and mask source/destination values before persistence; destination HMAC input includes number type.
+- Duplicate event IDs are acknowledged. Lower/equal versions are stale. Higher versions replace the snapshot; final-to-non-final regression is applied and logged.
+- Validation failures are sent to `<topic>.dlq`; DB errors remain retryable.
 
-## Read Flow
-- `GetUserHistory` rejects invalid RFC3339 dates, invalid cursor values, and reversed date ranges.
-- Default page size is `20`; max page size is `100`.
-- `next_cursor` is computed as `offset + page_size` when there are more rows.
+## Customer Read Flow
+- Resolve owner from claims only (`Subject` and `app_name` attribute).
+- A transaction owned by someone else is indistinguishable from an unknown ID (`CORE-1004`).
+- Dates use Jakarta calendar days, default latest 30 days, max 92 days, inclusive end converted to next-day exclusive.
+- Cursor is base64-encoded `(transaction_at, id)`; page size defaults to 20, max 50.
 
-## Idempotent Kafka Create Flow
-- Kafka inbound uses `CreateTransactionHistoryIdempotent`.
-- A duplicate `reference_id` is a no-op only when the incoming payload is equivalent to the already persisted record, including normalized JSON metadata and transaction time.
-- A duplicate `reference_id` with different business content becomes `ErrConflictingDuplicateReference`.
+## Backoffice Search
+- Require the configured role; require a supported criterion.
+- Normalize and hash destination number before repository search.
+- Emit `LogEvent` with audit category/action/outcome, criterion names, hash prefix only, and result count.
 
-## Source and Producer Policy
-- Code-level producer allowlist currently accepts only `trxFinance`, `ms-liquiditas`, and `ms-agent-payment-purchase`.
-- `CreateTransactionHistory` remains the documented fallback/manual ingestion path even after Kafka inbound support exists.
+## Backfill
+- Source records reuse status-event validation and PII preparation.
+- UUIDv5 event identity is derived from source name and source ID; event version is zero and source system is `backfill`.
+- Existing transaction IDs are untouched; invalid rows are counted by reason.
+- Report aggregates by Jakarta day and product type using exact decimal arithmetic.

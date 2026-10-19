@@ -21,10 +21,10 @@ func (f *fakeErrorDefinitionRepo) ListActiveErrorDefinitions(context.Context) ([
 	return f.rows, nil
 }
 
-func TestDBErrorDefinitionResolver_LoadAndResolveMessage(t *testing.T) {
+func TestDBMessageProvider_LoadAndResolveMessage(t *testing.T) {
 	repo := &fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{
-			ErrorCode:   "TRH-VAL-001",
+			ErrorCode:   "CORE-1000",
 			UserMessage: "permintaan tidak valid",
 			DetailsJSON: `[{"field":"user_id","reason":"required"}]`,
 			IsActive:    true,
@@ -32,12 +32,12 @@ func TestDBErrorDefinitionResolver_LoadAndResolveMessage(t *testing.T) {
 		},
 	}}
 
-	resolver := NewDBErrorDefinitionResolver(repo, nil)
+	resolver := NewDBMessageProvider(repo, nil)
 	if err := resolver.Load(context.Background()); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	userMessage, ok := resolver.Message(context.Background(), " trh-val-001 ")
+	userMessage, ok := resolver.Message(context.Background(), " core-1000 ")
 	if !ok {
 		t.Fatal("expected definition to exist")
 	}
@@ -46,10 +46,10 @@ func TestDBErrorDefinitionResolver_LoadAndResolveMessage(t *testing.T) {
 	}
 }
 
-func TestDBErrorDefinitionResolver_EmptyMessageIsNotProvided(t *testing.T) {
+func TestDBMessageProvider_EmptyMessageIsNotProvided(t *testing.T) {
 	repo := &fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{
-			ErrorCode:   "TRH-REC-001",
+			ErrorCode:   "CORE-9000",
 			UserMessage: "  ",
 			DetailsJSON: `{not-json}`,
 			IsActive:    true,
@@ -57,20 +57,20 @@ func TestDBErrorDefinitionResolver_EmptyMessageIsNotProvided(t *testing.T) {
 		},
 	}}
 
-	resolver := NewDBErrorDefinitionResolver(repo, nil)
+	resolver := NewDBMessageProvider(repo, nil)
 	if err := resolver.Load(context.Background()); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	if message, ok := resolver.Message(context.Background(), "TRH-REC-001"); ok || message != "" {
+	if message, ok := resolver.Message(context.Background(), "CORE-9000"); ok || message != "" {
 		t.Fatalf("expected no message for empty user message, got %q (present=%v)", message, ok)
 	}
 }
 
-func TestDBErrorDefinitionResolver_RefreshFailureKeepsPreviousCache(t *testing.T) {
+func TestDBMessageProvider_RefreshFailureKeepsPreviousCache(t *testing.T) {
 	repo := &fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
 		{
-			ErrorCode:   "TRH-VAL-002",
+			ErrorCode:   "STATUS-SUCCESS",
 			UserMessage: "reference duplicate",
 			DetailsJSON: `[]`,
 			IsActive:    true,
@@ -78,7 +78,7 @@ func TestDBErrorDefinitionResolver_RefreshFailureKeepsPreviousCache(t *testing.T
 		},
 	}}
 
-	resolver := NewDBErrorDefinitionResolver(repo, nil)
+	resolver := NewDBMessageProvider(repo, nil)
 	if err := resolver.Load(context.Background()); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -88,7 +88,7 @@ func TestDBErrorDefinitionResolver_RefreshFailureKeepsPreviousCache(t *testing.T
 		t.Fatal("expected refresh error")
 	}
 
-	msg, ok := resolver.Message(context.Background(), "TRH-VAL-002")
+	msg, ok := resolver.Message(context.Background(), "STATUS-SUCCESS")
 	if !ok {
 		t.Fatal("expected previous cache to remain available")
 	}

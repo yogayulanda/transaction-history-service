@@ -1,67 +1,108 @@
 # Transaction History Service
 
-`transaction-history-service` stores transaction history for application history views, downstream reporting, and controlled fallback/manual ingestion. It is a historical store, not a transaction processor or reporting engine.
-
-Primary producers include `trxFinance`, `ms-liquiditas`, and the configured agent-payment producer. Core fields such as `reference_id`, `source_service`, `channel`, `product_group`, `product_type`, `transaction_route`, `status_code`, and `transaction_time` remain first-class columns. `metadata_json` is reserved for product-specific JSON objects.
+This service stores transaction snapshots and ordered status history for customer history views and controlled support searches. It consumes status events; it does not process transactions or calculate money. Amounts remain decimal strings from producer to API.
 
 ## Runtime
 
-- Go toolchain: `1.26.9`; module directive: `go 1.26.0`.
-- Shared runtime: public `github.com/yogayulanda/go-core` module at `v1.2.1`; no sibling checkout is required.
-- SQL Server database: `transaction_history`.
-- Migration auto-run is configured in `cmd/server/main.go`; migrations run from `migrations/transaction` during startup.
-- Tracing endpoint: `APM_ENDPOINT`. Metrics and diagnostics are configured with `METRICS_ENABLED` and `DIAG_ENABLED`.
-- Kafka is enabled by a non-empty `KAFKA_BROKERS`; `KAFKA_INBOUND_ENABLED` controls this service's inbound consumer.
-- A non-empty `AUTH_SIGNATURE_MASTER_KEY` enables signature validation. Internal JWT remains disabled for this service.
+- Go `1.26.9`; module directive `go 1.26.0`.
+- Shared runtime: `github.com/yogayulanda/go-core` v`1.2.1`.
+- SQL Server database: `transaction_history`; migrations run during startup.
+- HTTP customer API: `GET /v1/transactions` and `GET /v1/transactions/{transaction_id}`.
+- gRPC-only support API: `history.v1.HistoryBackofficeService/SearchTransactions`.
+- Kafka inbound is controlled by `KAFKA_INBOUND_ENABLED`; its topic and producer allowlist are configured separately.
 
 ## Local Setup
 
-Use `.env.example` as the baseline and configure SQL Server connection values for `transaction_history`. Migration settings are code-configured, not environment variables.
+Copy `.env.example` to `.env`, configure SQL Server, and set `HISTORY_HASH_KEY` to a hex-encoded secret containing at least 32 bytes. If the event consumer is enabled, also set `HISTORY_STATUS_TOPIC` and `HISTORY_ALLOWED_SOURCES`. `HISTORY_ALLOWED_APPS` is a comma-separated list of accepted `app_name` values (default `app_a,app_b`). `HISTORY_BACKOFFICE_ROLE` is the role required for backoffice search (default `backoffice`).
 
 ```bash
-cp .env.example .env
 make run
 ```
 
-The service exposes gRPC and HTTP gateway APIs. The HTTP routes are:
+## JWT Configuration
 
-- `GET /v1/history`
-- `GET /v1/history/{id}`
-- `POST /v1/transaction-histories` for internal fallback/manual ingestion
+For non-local environments, configure exactly one of `HISTORY_JWT_PUBLIC_KEY` (PEM) or `HISTORY_JWT_JWKS_URL`, plus `HISTORY_JWT_ISSUER` and `HISTORY_JWT_AUDIENCE`. With neither key source configured, InternalJWT remains disabled; the service rejects non-local startup in that state. These service variables populate go-core's InternalJWT config directly; do not use the ignored `INTERNAL_JWT_*` prefix.
 
-The go-core gateway also provides `GET /health`, `/ready`, `/version`, and `/metrics`.
+Customer requests require authenticated claims. The service derives `user_id` from the claim subject and `app_name` from the `app_name` claim attribute; these values are not accepted as customer API parameters. Backoffice search requires the configured role, default `backoffice`.
 
-HTTP JSON responses use the go-core v1.2.1 envelope: `status`, `response_code`, `message`, `request_id`, `timestamp`, `data`, and (for `CORE-1000`) `details`. The examples in [docs/api.md](docs/api.md), [docs/openapi.yaml](docs/openapi.yaml), and the Postman collection are derived from go-core v1.2.1 code and are pending smoke verification against a running service and SQL Server.
+The HTTP gateway forwards through the local gRPC server, so the same authentication, request-ID, logging, and error interceptors apply to HTTP and gRPC customer requests. Backoffice search is not registered on the HTTP gateway.
 
-## Error Model
+HTTP responses use the shared runtime envelope with `status`, `response_code`, `message`, `request_id`, `timestamp`, and `data`; validation responses may include `details`.
 
-Service response codes are registered through `go-core/errors`. Active rows in `transaction_error_definitions` provide message overrides through the go-core message-provider interface; `details_json` remains in the database schema but is not applied. Field validation uses `CORE-1000` and carries field-level `details`.
+## Event Consumer
+
+The event contract, product detail schemas, ordering rules, and DLQ behavior are documented in [docs/events/transaction-status-v1.md](docs/events/transaction-status-v1.md). Invalid events are sent to the topic's `.dlq` suffix with `x-dlq-reason`; database failures remain retryable. Raw destination/source numbers, CICO codes, and notes are not written to logs.
+
+## Error Codes
 
 | Code | HTTP | Meaning |
 |---|---:|---|
-| `CORE-1000` | 400 | Invalid request with optional field details. |
-| `TRH-VAL-002` | 400 | Duplicate transaction reference. |
-| `TRH-DB-001` | 404 | Transaction history not found. |
-| `TRH-REC-001` | 500 | Non-recoverable service error. |
-| `CORE-9000` | 500 | Fallback for unknown errors. |
+| `CORE-1000` | 400 | Invalid request. |
+| `CORE-1001` | 401 | Authentication is missing or invalid. |
+| `CORE-1003` | 403 | The caller is not allowed. |
+| `CORE-1004` | 404 | Transaction history was not found for this owner. |
+| `CORE-9000` | 500 | An internal error occurred. |
+
+Active `transaction_error_definitions` rows can override user-facing messages and status labels.
+
+## Repository structure
+
+```text
+cmd/server/main.go
+internal/
+	app/                        # dependency construction and service registration
+	domain/                     # types and pure rules; standard library only
+		transaction.go
+		status.go
+		product.go
+		event.go
+		catalog.go
+		repository.go
+		errors.go
+	service/                    # business flows; domain and utils dependencies
+		status_event_service.go
+		history_service.go
+		backfill_service.go
+		message_provider.go
+		errors.go
+	repository/                 # SQL Server access and static catalog
+		transaction_repository.go
+		message_repository.go
+		catalog_static.go
+	handler/
+		grpc/                     # customer and backoffice RPCs, identity, mapping
+		kafka/                    # CloudEvents/JSON decoding and DLQ
+	utils/                      # pure standard-library helpers, no internal imports
+		pii.go
+		decimal.go
+		timezone.go
+```
+
+Dependency direction: `handler → service → domain ← repository`; `app` wires dependencies, and `utils` imports nothing internal.
+
+Where does new code go?
+- SQL → `repository`
+- Rule, list, or constant → `domain`
+- Sequence of steps → `service`
+- Request, JSON, or proto → `handler`
+- Generic pure helper → `utils`
+- Environment or wiring → `app`
+
+## Pre-deploy gate
+
+With Docker Compose available, run `make integration`. The target starts a disposable SQL Server 2022 database and single-node KRaft Kafka, waits for both healthchecks, runs the build-tagged integration suite, and removes the Compose project and volumes on exit. It is intentionally separate from `make check`.
+
+The suite covers migrations 0001–0005 and rollback/reapply, Kafka status ingestion for every supported product detail, SQL ordering/deduplication and concurrent first events, invalid-event DLQ, customer/backoffice gRPC behavior, gateway request-ID and route behavior, and non-local JWT startup/authentication checks. Local go-core identity claims are tested over gRPC; the current gateway does not forward those claim metadata headers, so HTTP identity success is not asserted. In non-local mode the test generates a temporary RSA key and signs fictional test tokens.
 
 ## Developer Commands
 
 ```bash
-make test       # race-enabled test suite
+make test
 make vet
-make lint       # golangci-lint v2.14.0
-make vuln       # govulncheck
+make lint
+make vuln
 make fmt-check
-make check      # formatting, vet, tests, lint, and vulnerability scan
+make check
 ```
 
-Regenerate protobuf output with `make proto` only when the proto source or generator versions change. Required tools are `protoc`, `protoc-gen-go`, `protoc-gen-go-grpc`, and `protoc-gen-grpc-gateway`.
-
-## Contract Notes
-
-- `GetUserHistory` uses an offset-based cursor placeholder and validates the date range when both dates are provided.
-- The HTTP `statusCode` query maps to the gRPC `status_code` field; `UNSPECIFIED` means no status filter.
-- Valid transaction statuses are `CREATED`, `PENDING`, `PROCESSING`, `SUCCESS`, `FAILED`, `REVERSED`, and `EXPIRED`.
-- Kafka non-retryable events are dead-lettered; ordinary repository/runtime failures remain retryable.
-- Lifecycle status updates and aggregate reporting are outside this service's current scope.
+Regenerate protobuf bindings with `make generate`. Required tools are `protoc`, `protoc-gen-go`, `protoc-gen-go-grpc`, and `protoc-gen-grpc-gateway`.

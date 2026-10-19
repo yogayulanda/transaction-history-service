@@ -4,43 +4,36 @@ title: Errors and Resilience
 type: knowledge
 status: confirmed
 confidence: high
-source: ai
+source: hybrid
 evidence:
   - { type: code, ref: internal/service/errors.go }
   - { type: code, ref: internal/service/error_definition_resolver.go }
-  - { type: code, ref: internal/handler/kafka/transaction_created.go }
-  - { type: code, ref: internal/service/idempotency.go }
+  - { type: code, ref: internal/handler/kafka/status_event.go }
+  - { type: code, ref: internal/repository/history_sql.go }
 owner: unresolved
-updated: 2026-10-15
+updated: 2026-10-16
 ---
 
 # Errors and Resilience
 
-## Service Error Taxonomy
-- Field validation: `CORE-1000` (`errors.Validation`); field violations are exposed as `details`.
-- Duplicate reference id: `TRH-VAL-002` (HTTP 400, gRPC `InvalidArgument`).
-- Transaction history not found: `TRH-DB-001` (HTTP 404, gRPC `NotFound`).
-- Internal service failure: `TRH-REC-001` (HTTP 500, gRPC `Internal`).
-- Unknown/unregistered errors fall back to `CORE-9000`.
-- `TRH-VAL-001` is retired and unused; its existing database row is retained.
+## API Codes
+- `CORE-1000`: invalid request (`InvalidArgument`, HTTP 400).
+- `CORE-1001`: unauthenticated (`Unauthenticated`, HTTP 401).
+- `CORE-1003`: forbidden (`PermissionDenied`, HTTP 403).
+- `CORE-1004`: transaction not found for this owner (`NotFound`, HTTP 404).
+- `CORE-9000`: internal failure (`Internal`, HTTP 500).
+- Active DB message rows may override default user-facing messages and status labels.
 
-## Error Mapping Behavior
-- Service codes are registered with `go-core/errors.Register`; transport handlers map them through `coreerrors.ToGRPC`.
-- Duplicate `reference_id` from the repository maps to `TRH-VAL-002`.
-- Missing detail maps to a not-found error.
-- Repository/runtime failures map to `TRH-REC-001` with sanitized messages.
-- Active `transaction_error_definitions.user_message` values implement the go-core message provider. `details_json` remains in the schema but is no longer applied to responses.
+## Kafka Retry and DLQ
+- Missing/invalid CloudEvents attributes, malformed payloads, catalog violations, invalid amounts, and detail validation errors are non-retryable.
+- Invalid events are published unchanged to `<topic>.dlq` with `x-dlq-reason` so they can be replayed after a consumer fix; the input is acknowledged only after successful publication.
+- Repository/database errors are returned for retry.
+- A DLQ publish error is returned for retry and prevents input acknowledgment.
+- DLQ event bodies are never logged. DLQ-related logs may include only `event_id`, `ce_type`, and a stable reason.
+- Deployment requirement for the internal fork (I-A): the `.dlq` topic must have the same ACL, TLS, and retention as its source topic.
 
-## Dynamic Error Definitions
-- On startup, the app loads active rows from `transaction_error_definitions` as a go-core message provider.
-- Definitions refresh in background every `60s`.
-- Resolver failures during bootstrap are logged but do not abort service startup.
-- Provider lookup can override registered default messages when a non-empty `user_message` exists. Field-level details come from `CORE-1000` validation, not database definitions.
-
-## Kafka Retry and DLQ Policy
-- Malformed events, unsupported event type/version, producer-not-allowed, invalid payload shape, invalid metadata JSON, invalid transaction time, conflicting duplicates, and registered non-retryable `ClassFailed` app errors are non-retryable.
-- The service manually sends non-retryable events to the DLQ topic with `x-original-topic` and `x-error-code` headers.
-- If DLQ publish fails, the handler returns a retryable error.
-- Ordinary repository/runtime failures remain retryable and are not manually DLQ-published.
-- When retries are exhausted, the go-core v1.2.1 consumer may publish to the DLQ with `x-dlq-reason` and `x-original-topic`; successful DLQ publication commits the original message, while failed publication leaves it uncommitted and blocks that partition.
-- Processing and commits preserve order per Kafka partition; concurrency applies across partitions.
+## Idempotency and Ordering
+- Existing event ID is acknowledged as duplicate.
+- A status version no higher than the current version is stale and does not update the header.
+- Unique transaction/version conflict with another event ID is logged and acknowledged.
+- Higher versions apply even across final-to-non-final regressions; regression is an anomaly signal, not a rejection.

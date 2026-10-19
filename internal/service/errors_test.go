@@ -11,13 +11,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func registerServiceErrorCodes(t *testing.T) {
+func preserveErrorRegistry(t *testing.T) {
 	t.Helper()
 	registry := coreerrors.SnapshotRegistry()
 	t.Cleanup(func() { coreerrors.RestoreRegistry(registry) })
-	if err := RegisterErrorCodes(); err != nil {
-		t.Fatalf("register service error codes: %v", err)
-	}
 }
 
 func TestNewInvalidInputError_UsesCoreValidationContract(t *testing.T) {
@@ -30,28 +27,18 @@ func TestNewInvalidInputError_UsesCoreValidationContract(t *testing.T) {
 	}
 }
 
-func TestNewDuplicateReferenceIDError_UsesRegisteredCode(t *testing.T) {
-	registerServiceErrorCodes(t)
-	appErr := NewDuplicateReferenceIDError()
-	if appErr.Code != CodeDuplicateReferenceID {
-		t.Fatalf("expected %s, got %s", CodeDuplicateReferenceID, appErr.Code)
-	}
-}
-
-func TestNewNotFoundError_UsesRegisteredCode(t *testing.T) {
-	registerServiceErrorCodes(t)
+func TestNewNotFoundError_UsesCoreCode(t *testing.T) {
 	appErr := NewNotFoundError("transaction history not found")
-	if appErr.Code != CodeTransactionNotFound {
-		t.Fatalf("expected %s, got %s", CodeTransactionNotFound, appErr.Code)
+	if appErr.Code != "CORE-1004" {
+		t.Fatalf("expected CORE-1004, got %s", appErr.Code)
 	}
 }
 
-func TestNewInternalError_UsesRegisteredCodeAndWraps(t *testing.T) {
-	registerServiceErrorCodes(t)
+func TestNewInternalError_UsesCoreCodeAndWraps(t *testing.T) {
 	root := errors.New("sql timeout")
 	appErr := NewInternalError("failed to get user history", root)
-	if appErr.Code != CodeInternal {
-		t.Fatalf("expected %s, got %s", CodeInternal, appErr.Code)
+	if appErr.Code != "CORE-9000" {
+		t.Fatalf("expected CORE-9000, got %s", appErr.Code)
 	}
 	if !errors.Is(appErr, root) {
 		t.Fatal("expected wrapped root error")
@@ -59,9 +46,9 @@ func TestNewInternalError_UsesRegisteredCodeAndWraps(t *testing.T) {
 }
 
 func TestErrorCodes_MapToExpectedGRPCStatusesAndMessages(t *testing.T) {
-	registerServiceErrorCodes(t)
-	provider := NewDBErrorDefinitionResolver(&fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
-		{ErrorCode: CodeTransactionNotFound, UserMessage: "localized not found"},
+	preserveErrorRegistry(t)
+	provider := NewDBMessageProvider(&fakeErrorDefinitionRepo{rows: []domain.ErrorDefinition{
+		{ErrorCode: "CORE-1004", UserMessage: "localized not found"},
 		{ErrorCode: "CORE-1000", UserMessage: "localized invalid request"},
 	}}, nil)
 	if err := provider.Load(context.Background()); err != nil {
@@ -78,25 +65,18 @@ func TestErrorCodes_MapToExpectedGRPCStatusesAndMessages(t *testing.T) {
 		fieldDetail bool
 	}{
 		{
-			name:      "duplicate reference",
-			appErr:    NewDuplicateReferenceIDError(),
-			grpcCode:  codes.InvalidArgument,
-			errorCode: CodeDuplicateReferenceID,
-			message:   "Transaksi dengan referensi ini sudah pernah diproses.",
-		},
-		{
 			name:      "not found uses provider",
 			appErr:    NewNotFoundError("transaction history not found"),
 			grpcCode:  codes.NotFound,
-			errorCode: CodeTransactionNotFound,
+			errorCode: "CORE-1004",
 			message:   "localized not found",
 		},
 		{
 			name:      "internal error",
 			appErr:    NewInternalError("internal", nil),
 			grpcCode:  codes.Internal,
-			errorCode: CodeInternal,
-			message:   "Sistem sedang sibuk. Silakan coba beberapa saat lagi.",
+			errorCode: "CORE-9000",
+			message:   "internal server error",
 		},
 		{
 			name:        "validation uses provider and field details",

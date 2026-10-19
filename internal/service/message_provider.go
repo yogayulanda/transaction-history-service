@@ -12,30 +12,30 @@ import (
 
 const defaultErrorDefinitionRefreshInterval = 60 * time.Second
 
-type DBErrorDefinitionResolver struct {
-	repo domain.ErrorDefinitionRepository
+type DBMessageProvider struct {
+	repo domain.MessageRepository
 	log  logger.Logger
 
 	mu          sync.RWMutex
 	definitions map[string]string
 }
 
-func NewDBErrorDefinitionResolver(
-	repo domain.ErrorDefinitionRepository,
+func NewDBMessageProvider(
+	repo domain.MessageRepository,
 	log logger.Logger,
-) *DBErrorDefinitionResolver {
-	return &DBErrorDefinitionResolver{
+) *DBMessageProvider {
+	return &DBMessageProvider{
 		repo:        repo,
 		log:         log,
 		definitions: make(map[string]string),
 	}
 }
 
-func (r *DBErrorDefinitionResolver) Load(ctx context.Context) error {
+func (r *DBMessageProvider) Load(ctx context.Context) error {
 	return r.loadWithOperation(ctx, "error_definition_load")
 }
 
-func (r *DBErrorDefinitionResolver) StartAutoRefresh(ctx context.Context, interval time.Duration) {
+func (r *DBMessageProvider) StartAutoRefresh(ctx context.Context, interval time.Duration) {
 	if interval <= 0 {
 		interval = defaultErrorDefinitionRefreshInterval
 	}
@@ -55,7 +55,7 @@ func (r *DBErrorDefinitionResolver) StartAutoRefresh(ctx context.Context, interv
 	}()
 }
 
-func (r *DBErrorDefinitionResolver) Message(_ context.Context, code string) (string, bool) {
+func (r *DBMessageProvider) Message(_ context.Context, code string) (string, bool) {
 	normalizedCode := strings.ToUpper(strings.TrimSpace(code))
 	if normalizedCode == "" {
 		return "", false
@@ -67,7 +67,7 @@ func (r *DBErrorDefinitionResolver) Message(_ context.Context, code string) (str
 	return message, ok && message != ""
 }
 
-func (r *DBErrorDefinitionResolver) loadWithOperation(ctx context.Context, operation string) error {
+func (r *DBMessageProvider) loadWithOperation(ctx context.Context, operation string) error {
 	if r.repo == nil {
 		return nil
 	}
@@ -100,7 +100,7 @@ func (r *DBErrorDefinitionResolver) loadWithOperation(ctx context.Context, opera
 	return nil
 }
 
-func (r *DBErrorDefinitionResolver) emitServiceLog(
+func (r *DBMessageProvider) emitServiceLog(
 	ctx context.Context,
 	operation,
 	status,

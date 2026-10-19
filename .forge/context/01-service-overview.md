@@ -5,39 +5,41 @@ type: system
 system_type: service
 status: confirmed
 confidence: high
-source: ai
+source: hybrid
 evidence:
   - { type: doc, ref: README.md }
   - { type: code, ref: proto/history/v1/history.proto }
   - { type: code, ref: cmd/server/main.go }
 owner: unresolved
-updated: 2026-07-06
+updated: 2026-10-16
 ---
 
 # Service Overview
 
 ## Purpose
-- `transaction-history-service` is the service-owned historical store for transaction records used by app history views, downstream reporting consumers, fallback/manual ingestion, and early integration testing.
+- `transaction-history-service` stores transaction snapshots and ordered status history for customer history views and controlled support searches.
 
 ## Responsibilities
-- Store new transaction history records through `CreateTransactionHistory`.
-- Serve user transaction history lists through `GetUserHistory`.
-- Serve single-record detail through `GetTransactionHistoryDetail`.
-- Expose the same contract over gRPC and grpc-gateway HTTP.
-- Optionally ingest `transaction.created` Kafka events into the same store.
+- Consume validated transaction status snapshots from Kafka.
+- Store decimal-string money, masked destination/source values, product detail, and append-only status events.
+- Serve owner-scoped list and detail through gRPC and the HTTP gateway.
+- Serve role-gated support search through a separate gRPC-only service.
+- Provide an insert-only backfill framework without a public backfill command.
 
 ## Non-Goals
-- It is not the transaction processor.
-- It is not the reporting engine.
-- It does not replace the main event pipeline; the create API remains a fallback/manual path.
+- It is not the transaction processor or reporting engine.
+- It does not perform arithmetic on transaction money.
+- It does not expose user identity in customer request parameters.
 
-## Primary Sources and Consumers
-- Producer/source services called out in repository docs: `trxFinance`, `ms-liquiditas`, and agent-payment purchase flows.
-- Code-level Kafka producer allowlist currently accepts `trxFinance`, `ms-liquiditas`, and `ms-agent-payment-purchase`.
-- Consumers are app-facing history clients and downstream reporting readers.
+## Source and Consumer Policy
+- Kafka producer names and topic are environment-configured; public examples use fictional values.
+- Customer owner identity comes from authenticated claims.
+- Backoffice search requires the configured role and emits an audit event.
 
 ## Entry Surface
 - Entrypoint: `cmd/server/main.go`
 - Service wiring: `internal/app/app.go`
-- Public contract: `proto/history/v1/history.proto`
-- HTTP reference doc: `docs/api.md`
+- Public API: `proto/history/v1/history.proto`
+- Backoffice API: `proto/history/v1/backoffice.proto`
+- Event contract: `docs/events/transaction-status-v1.md`
+- HTTP reference: `docs/api.md`
