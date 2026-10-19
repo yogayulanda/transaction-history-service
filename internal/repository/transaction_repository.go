@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/microsoft/go-mssqldb"
+	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/yogayulanda/go-core/logger"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 )

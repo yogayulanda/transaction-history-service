@@ -11,7 +11,7 @@ import (
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/microsoft/go-mssqldb"
+	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/yogayulanda/transaction-history-service/internal/domain"
 )
 
